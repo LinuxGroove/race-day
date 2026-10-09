@@ -20,28 +20,9 @@ func _ready() -> void:
 	var layout := "greenfield" if Circuits.info("greenfield").size() > 0 else str(ids[0])
 	var info := Circuits.info(layout)
 	track = Circuits.track(layout)
-	var view_path := "res://game/world/track_view.gd"
-	var tv: Node3D = null
-	if ResourceLoader.exists(view_path):
-		tv = load(view_path).create(track, info, 0)
-	if tv == null:
-		tv = DebugRoad.create(track)
+	var tv := TrackView.create(track, info, 0)
 	add_child(tv)
-	var atmo_path := "res://game/world/atmosphere.gd"
-	if ResourceLoader.exists(atmo_path):
-		add_child(load(atmo_path).create(str(info.get("time", "day")), 0.0))
-	else:
-		var env := WorldEnvironment.new()
-		var e := Environment.new()
-		e.background_mode = Environment.BG_COLOR
-		e.background_color = Color(0.55, 0.75, 0.95)
-		e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		e.ambient_light_color = Color(0.7, 0.75, 0.8)
-		env.environment = e
-		add_child(env)
-		var sun := DirectionalLight3D.new()
-		sun.rotation_degrees = Vector3(-50, 30, 0)
-		add_child(sun)
+	add_child(Atmosphere.create(info, tv))
 	race = Race.new(track, Race.Kind.PRACTICE, 999, randi())
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()

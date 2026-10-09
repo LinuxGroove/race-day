@@ -199,14 +199,21 @@ func _layout(root: String, id: String) -> void:
 	# Television: from beside the road ahead, the car coming past.
 	var e: Race.Entry = pv.driver.entry
 	var t := scene.track
-	var s := t.wrap_s(e.sim.spot.s + 70.0)
+	var s := t.wrap_s(e.sim.spot.s + 160.0)
 	var side := -1.0 if t.value_at(t.line_off, s) > 0.0 else 1.0
 	var spot := t.world(s, side * (t.value_at(t.half, s) + 7.0)) + Vector3.UP * 3.0
 	pv.camera.set_view("free")
 	pv.hud.visible = false
-	for k in 30:
+	# Follow the car in until it's close, then take the picture.
+	for k in 400:
 		pv.camera.global_transform = Transform3D(Basis.looking_at(e.sim.pos + Vector3.UP - spot, Vector3.UP), spot)
+		pv.camera.fov = 40.0
 		await get_tree().process_frame
+		var to_go := t.delta_s(e.sim.spot.s, s)
+		if to_go < 45.0 or to_go > t.length * 0.5:
+			break
+	pv.camera.global_transform = Transform3D(Basis.looking_at(e.sim.pos + Vector3.UP - spot, Vector3.UP), spot)
+	await get_tree().process_frame
 	await _shot(root, folder, id + "-tv", "%s: from the trackside" % name)
 	# The whole layout from above.
 	var lo := Vector3(INF, 0, INF)
@@ -223,8 +230,13 @@ func _layout(root: String, id: String) -> void:
 	var eye := centre + Vector3(0, extent * 0.75, extent * 0.55)
 	pv.camera.global_transform = Transform3D(Basis.looking_at(centre - eye, Vector3.UP), eye)
 	pv.camera.fov = 50.0
+	# No haze from up here, so the whole lap shows.
+	var env: Environment = (scene.atmosphere as Atmosphere).env
+	var fog := env.fog_enabled
+	env.fog_enabled = false
 	await _wait(1.0)
 	await _shot(root, folder, id + "-above", "%s: the layout from above" % name)
+	env.fog_enabled = fog
 	pv.hud.visible = true
 
 

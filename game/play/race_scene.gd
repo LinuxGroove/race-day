@@ -47,6 +47,8 @@ var over := false
 var world: Node3D
 var atmosphere: Node
 var track_view: Node3D
+var _shown_rain := -1.0
+var _shown_time := -1.0
 var sounds: RaceSounds
 var safety_car: Node3D
 var _sc_lights: Array = []
@@ -80,6 +82,8 @@ func _ready() -> void:
 	RaceSounds.stop_music()
 	sounds = RaceSounds.new()
 	add_child(sounds)
+	for stand in (track_view as TrackView).grandstands:
+		sounds.add_grandstand(stand[0], clampf(float(stand[1]), 0.6, 2.0))
 	_hud_layer = CanvasLayer.new()
 	_hud_layer.layer = 1
 	add_child(_hud_layer)
@@ -108,31 +112,39 @@ func _build_world() -> void:
 	world.name = "World"
 	add_child(world)
 	var detail := int(LGSettings.get_value("video", "detail"))
-	var view_path := "res://game/world/track_view.gd"
-	if ResourceLoader.exists(view_path):
-		track_view = load(view_path).create(track, info, detail) if load(view_path).has_method("create") else null
-	if track_view == null:
-		track_view = DebugRoad.create(track)
+	track_view = TrackView.create(track, info, detail)
 	world.add_child(track_view)
-	var atmo_path := "res://game/world/atmosphere.gd"
-	if ResourceLoader.exists(atmo_path):
-		atmosphere = load(atmo_path).create(str(info.get("time", "day")), float(config.get("wet", 0.0)))
-		world.add_child(atmosphere)
-	else:
-		var env := WorldEnvironment.new()
-		var e := Environment.new()
-		e.background_mode = Environment.BG_COLOR
-		e.background_color = Color(0.55, 0.75, 0.95)
-		e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		e.ambient_light_color = Color(0.7, 0.75, 0.8)
-		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-		env.environment = e
-		world.add_child(env)
-		var sun := DirectionalLight3D.new()
-		sun.rotation_degrees = Vector3(-50, 30, 0)
-		sun.shadow_enabled = true
-		sun.directional_shadow_max_distance = 220.0
-		world.add_child(sun)
+	atmosphere = Atmosphere.create(info, track_view)
+	world.add_child(atmosphere)
+	(atmosphere as Atmosphere).set_rain(float(config.get("wet", 0.0)))
+
+
+## The world follows the race: start lights, rain and, at the night
+## finale, the sun going down over the race.
+func _update_world() -> void:
+	var tv := track_view as TrackView
+	match race.phase:
+		Race.Phase.GRID:
+			tv.set_lights(0, false)
+		Race.Phase.LIGHTS:
+			tv.set_lights(race.lights, false)
+		_:
+			tv.set_lights(0, true)
+	var atmo := atmosphere as Atmosphere
+	var rain := race.rain
+	if absf(rain - _shown_rain) > 0.01:
+		_shown_rain = rain
+		atmo.set_rain(rain)
+	if str(info.get("time", "")) == "dusk_to_night":
+		var t := 0.0
+		if kind == Race.Kind.RACE and not race.order.is_empty():
+			var lead: Race.Entry = race.order[0]
+			t = clampf(lead.s_total / (track.length * maxf(1.0, race.laps)), 0.0, 1.0)
+		elif kind == Race.Kind.QUALIFYING:
+			t = 0.15
+		if absf(t - _shown_time) > 0.005:
+			_shown_time = t
+			atmo.set_time(t)
 
 
 # --- Sessions -------------------------------------------------------------
@@ -265,6 +277,8 @@ func _build_views() -> void:
 		_hud_layer.add_child(pv)
 		views.append(pv)
 	_layout_views()
+	for pv in views:
+		(atmosphere as Atmosphere).follow(pv.camera)
 	# Split screen: each player's camera hears the cars near it.
 	AudioBudget.listeners = []
 	if views.size() > 1:
@@ -332,6 +346,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(_dt: float) -> void:
 	_show_safety_car(_dt)
+	if race:
+		_update_world()
 	for i in players.size():
 		var p: PlayerDriver = players[i]
 		if i >= views.size():

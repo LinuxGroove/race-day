@@ -21,6 +21,8 @@ var stats := {}
 var taken: Array = []
 
 var _cameras: Array = []
+## Grandstands, one point per row (middle, at crowd height), for crowd sound.
+var grandstands: Array = []
 var _lamps: Array = []
 var _start: StartLights
 

@@ -245,6 +245,8 @@ func grandstand_row(s0: float, s1: float, side: float, dist := 0.0, covered := t
 	var width := 16.0
 	var sc := width / sz.x
 	var depth := sz.z * sc
+	var mid := track.index_at(track.wrap_s((s0 + s1) * 0.5))
+	view.grandstands.append([at((s0 + s1) * 0.5, side * (float(roads.bar[0 if side > 0.0 else 1][mid]) + depth * 0.5 + 6.0)).origin + Vector3.UP * 4.0, (s1 - s0 + width) / 80.0])
 	var s := s0
 	while s <= s1:
 		var si := track.index_at(track.wrap_s(s))
