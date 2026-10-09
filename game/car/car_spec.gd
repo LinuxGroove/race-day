@@ -33,8 +33,9 @@ var brake_force := 42000.0
 var brake_balance := 0.58
 ## Peak tyre grip (friction coefficient) for new soft tyres on a dry road.
 var grip := 1.70
-## The rear tyres are wider: a little more grip than the fronts.
-var rear_grip := 1.03
+## The rear tyres are wider: more grip than the fronts, so too much lock
+## makes the car run wide rather than spin.
+var rear_grip := 1.08
 ## Shape of the tyre's grip curve against slip angle (a simple Pacejka curve).
 var tyre_b := 12.0
 var tyre_c := 1.5
@@ -95,6 +96,11 @@ func power_at(rpm: float) -> float:
 	if x > 1.0:
 		shape *= 1.0 - (x - 1.0) * 2.0
 	return power * shape
+
+
+## The slip angle (radians) where the tyres grip hardest; past it they slide.
+func peak_slip() -> float:
+	return tan(PI / (2.0 * tyre_c)) / tyre_b
 
 
 ## The top speed in the highest gear at the rpm limit (m/s).

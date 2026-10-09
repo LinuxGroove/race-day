@@ -53,7 +53,7 @@ const SETTING_DEFAULTS := {
 		# off, corners or full.
 		"braking_line": "corners",
 		"braking_help": false,
-		"steering_help": false,
+		"steering_help": true,
 		"abs": true,
 		"tc": true,
 		# auto or manual.

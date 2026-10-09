@@ -235,6 +235,12 @@ func lat_use() -> float:
 	return clampf(absf(lat_g) * CarSpec.G / maxf(cap, 1.0), 0.0, 1.0)
 
 
+## The rear tyres' slip angle (radians): past spec.peak_slip() they slide.
+func rear_slip() -> float:
+	var vx := forward_speed()
+	return atan2(vel.dot(left2()) - spec.cg_rear * yaw_rate, maxf(absf(vx), 6.0))
+
+
 ## The most throttle (0 to 1) the rear tyres can take without spinning, for
 ## traction control.
 func throttle_limit() -> float:
