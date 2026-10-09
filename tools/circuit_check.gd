@@ -3,8 +3,8 @@ extends SceneTree
 ## lane and an AI lap round it, and optionally a short race.
 ##
 ##   godot --headless --path . -s tools/circuit_check.gd
-##   CIRCUIT=greenfield_gp godot --headless --path . -s tools/circuit_check.gd
-##   CIRCUIT=greenfield_gp,monte_gp RACE=1 godot --headless --path . -s tools/circuit_check.gd
+##   CIRCUIT=greenfield godot --headless --path . -s tools/circuit_check.gd
+##   CIRCUIT=greenfield,monte_pineta RACE=1 godot --headless --path . -s tools/circuit_check.gd
 ##
 ## CIRCUIT picks layouts (comma separated; default every one but the Proving
 ## Ground, or "all"), RACE=1 adds a 2-lap 20-car race, RACE=only skips the
@@ -82,6 +82,8 @@ func _check(id: String, race_opt: String) -> void:
 		print("  warning ", w)
 	var row := {"id": id, "name": info.get("name", ""), "layout": info.get("layout", ""), "km": t.length / 1000.0, "corners": t.corners.size(), "drs": t.drs.size(), "lap": 0.0, "wide": 0.0, "race": "-", "problems": ""}
 	print("  length %.0f m, %d corners, %d DRS zones, sectors at %.0f and %.0f m" % [t.length, t.corners.size(), t.drs.size(), t.sectors[0], t.sectors[1]])
+	if info.has("length_km") and absf(float(info.length_km) - t.length / 1000.0) > 0.05:
+		problems.append("info says %.2f km, the lap is %.2f km" % [float(info.length_km), t.length / 1000.0])
 	var solved := Track.solve_pieces(plan)
 	var autos: Array = []
 	for k in plan.pieces.size():

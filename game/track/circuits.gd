@@ -102,29 +102,74 @@ static func plan(id: String) -> TrackPlan:
 			return _redrock_canyon()
 		"harbour_lights":
 			return _harbour_lights()
+		"greenfield_club":
+			return _greenfield_club()
+		"port_lumen_reverse":
+			return _port_lumen().reversed()
+		"monte_pineta_junior":
+			return _monte_pineta_junior()
+		"ardenwood_reverse":
+			return _ardenwood().reversed()
+		"kingsfield_international":
+			return _kingsfield_international()
+		"twin_bridges_reverse":
+			return _twin_bridges().reversed()
+		"sandhaven_reverse":
+			return _sandhaven().reversed()
+		"neon_marina_short":
+			return _neon_marina_short()
+		"sierra_alta_reverse":
+			return _sierra_alta().reversed()
+		"lakeside_isle_reverse":
+			return _lakeside_isle().reversed()
+		"hay_valley_reverse":
+			return _hay_valley().reversed()
+		"cliffside_reverse":
+			return _cliffside().reversed()
+		"misty_hills_reverse":
+			return _misty_hills_reverse()
+		"redrock_canyon_national":
+			return _redrock_canyon_national()
+		"harbour_lights_short":
+			return _harbour_lights_short()
 	push_error("No circuit %s" % id)
 	return ProvingGround.plan()
 
 
 static func _all() -> Array:
 	return [
-		{"id": "greenfield", "venue": "greenfield", "name": "Greenfield Park", "layout": "Grand Prix", "round": 1, "theme": "parkland", "time": "day", "rain": 0.25, "laps": 56, "clockwise": true, "length_km": 5.3, "blurb": "Parkland round a boating lake: medium speed and forgiving run-off."},
-		{"id": "port_lumen", "venue": "port_lumen", "name": "Port Lumen", "layout": "Grand Prix", "round": 2, "theme": "harbour", "time": "day", "rain": 0.15, "laps": 78, "clockwise": true, "length_km": 3.3, "blurb": "Harbour streets: slow, narrow and walled in. Qualifying decides the race."},
-		{"id": "monte_pineta", "venue": "monte_pineta", "name": "Monte Pineta", "layout": "Grand Prix", "round": 3, "theme": "forest", "time": "day", "rain": 0.2, "laps": 53, "clockwise": true, "length_km": 5.8, "blurb": "The temple of speed: long straights, three chicanes and the slipstream."},
-		{"id": "ardenwood", "venue": "ardenwood", "name": "Ardenwood", "layout": "Grand Prix", "round": 4, "theme": "forest", "time": "day", "rain": 0.45, "laps": 44, "clockwise": true, "length_km": 6.9, "blurb": "A forest valley: big climbs, fast sweeps and a bridge over the river."},
-		{"id": "kingsfield", "venue": "kingsfield", "name": "Kingsfield", "layout": "Grand Prix", "round": 5, "theme": "airfield", "time": "day", "rain": 0.4, "laps": 52, "clockwise": true, "length_km": 5.8, "blurb": "A former airfield: very fast, flowing corners on a wide, open track."},
-		{"id": "twin_bridges", "venue": "twin_bridges", "name": "Twin Bridges", "layout": "Grand Prix", "round": 6, "theme": "parkland", "time": "day", "rain": 0.35, "laps": 53, "clockwise": true, "length_km": 5.8, "blurb": "A figure of eight: technical esses, a hairpin and the crossover bridge."},
-		{"id": "sandhaven", "venue": "sandhaven", "name": "Sandhaven", "layout": "Grand Prix", "round": 7, "theme": "desert", "time": "night", "rain": 0.0, "laps": 57, "clockwise": true, "length_km": 5.4, "blurb": "A desert night race: hard braking zones and tyres that wear fast."},
-		{"id": "neon_marina", "venue": "neon_marina", "name": "Neon Marina", "layout": "Grand Prix", "round": 8, "theme": "city", "time": "night", "rain": 0.2, "laps": 61, "clockwise": false, "length_km": 5.0, "blurb": "Twenty corners between the city towers at night. The walls punish mistakes."},
-		{"id": "sierra_alta", "venue": "sierra_alta", "name": "Sierra Alta", "layout": "Grand Prix", "round": 9, "theme": "mountain", "time": "day", "rain": 0.2, "laps": 71, "clockwise": true, "length_km": 4.3, "air": 0.78, "blurb": "High in the mountains: thin air, less downforce and a stadium section."},
-		{"id": "lakeside_isle", "venue": "lakeside_isle", "name": "Lakeside Isle", "layout": "Grand Prix", "round": 10, "theme": "lake", "time": "day", "rain": 0.3, "laps": 70, "clockwise": true, "length_km": 4.4, "blurb": "An island in a river: stop and go, a hairpin and a wall at the last chicane."},
-		{"id": "hay_valley", "venue": "hay_valley", "name": "Hay Valley", "layout": "Grand Prix", "round": 11, "theme": "countryside", "time": "day", "rain": 0.35, "laps": 52, "clockwise": true, "length_km": 5.9, "blurb": "An old countryside circuit: narrow, cambered and quick, with grass beside the kerbs."},
-		{"id": "bellwood", "venue": "bellwood", "name": "Bellwood Speedway", "layout": "Road Course", "round": 12, "theme": "oval", "time": "day", "rain": 0.15, "laps": 73, "clockwise": false, "length_km": 4.2, "blurb": "One banked corner flat out, then a twisty infield."},
-		{"id": "cliffside", "venue": "cliffside", "name": "Cliffside", "layout": "Grand Prix", "round": 13, "theme": "cliff", "time": "day", "rain": 0.25, "laps": 66, "clockwise": true, "length_km": 4.7, "blurb": "Coastal cliffs above the sea: blind crests and one steep drop."},
-		{"id": "misty_hills", "venue": "misty_hills", "name": "Misty Hills", "layout": "Grand Prix", "round": 14, "theme": "hills", "time": "day", "rain": 0.65, "laps": 75, "clockwise": false, "length_km": 3.9, "blurb": "The rain round: a short, busy lap through wooded hills, anticlockwise."},
-		{"id": "redrock_canyon", "venue": "redrock_canyon", "name": "Redrock Canyon", "layout": "Grand Prix", "round": 15, "theme": "canyon", "time": "day", "rain": 0.1, "laps": 56, "clockwise": false, "length_km": 5.5, "max_slope": 0.125, "blurb": "A red-rock canyon: a steep climb to the first corner and wide run-off."},
-		{"id": "harbour_lights", "venue": "harbour_lights", "name": "Harbour Lights", "layout": "Grand Prix", "round": 16, "theme": "harbour", "time": "dusk_to_night", "rain": 0.05, "laps": 58, "clockwise": false, "length_km": 5.3, "blurb": "The finale: a marina island under the hotel bridge, from dusk into the night."},
-		{"id": "bellwood_oval", "venue": "bellwood", "name": "Bellwood Speedway", "layout": "Oval", "round": 12, "theme": "oval", "time": "day", "rain": 0.15, "laps": 90, "clockwise": false, "length_km": 4.5, "blurb": "The bonus oval: two banked turns, flat out all the way round."},
+		{"id": "greenfield", "venue": "greenfield", "name": "Greenfield Park", "layout": "Grand Prix", "round": 1, "theme": "parkland", "time": "day", "rain": 0.25, "laps": 60, "clockwise": true, "length_km": 5.10, "blurb": "Parkland round a boating lake: medium speed and forgiving run-off."},
+		{"id": "greenfield_club", "venue": "greenfield", "name": "Greenfield Park", "layout": "Club", "round": 1, "theme": "parkland", "time": "day", "rain": 0.25, "laps": 84, "clockwise": true, "length_km": 3.61, "blurb": "The short way round: up the middle of the park beside the lake."},
+		{"id": "port_lumen", "venue": "port_lumen", "name": "Port Lumen", "layout": "Grand Prix", "round": 2, "theme": "harbour", "time": "day", "rain": 0.15, "laps": 88, "clockwise": true, "length_km": 3.47, "blurb": "Harbour streets: slow, narrow and walled in. Qualifying decides the race."},
+		{"id": "port_lumen_reverse", "venue": "port_lumen", "name": "Port Lumen", "layout": "Reverse", "round": 2, "theme": "harbour", "time": "day", "rain": 0.15, "laps": 88, "clockwise": false, "length_km": 3.47, "blurb": "The harbour streets the other way: down the hill and up through the tunnel."},
+		{"id": "monte_pineta", "venue": "monte_pineta", "name": "Monte Pineta", "layout": "Grand Prix", "round": 3, "theme": "forest", "time": "day", "rain": 0.2, "laps": 56, "clockwise": true, "length_km": 5.44, "blurb": "The temple of speed: long straights, three chicanes and the slipstream."},
+		{"id": "monte_pineta_junior", "venue": "monte_pineta", "name": "Monte Pineta", "layout": "Junior", "round": 3, "theme": "forest", "time": "day", "rain": 0.2, "laps": 77, "clockwise": true, "length_km": 3.97, "blurb": "The first chicane, a link road through the pines and the long final right."},
+		{"id": "ardenwood", "venue": "ardenwood", "name": "Ardenwood", "layout": "Grand Prix", "round": 4, "theme": "forest", "time": "day", "rain": 0.45, "laps": 44, "clockwise": true, "length_km": 6.97, "blurb": "A forest valley: big climbs, fast sweeps and a bridge over the river."},
+		{"id": "ardenwood_reverse", "venue": "ardenwood", "name": "Ardenwood", "layout": "Reverse", "round": 4, "theme": "forest", "time": "day", "rain": 0.45, "laps": 44, "clockwise": false, "length_km": 6.97, "blurb": "The forest valley the other way: down the long hill and up from the river."},
+		{"id": "kingsfield", "venue": "kingsfield", "name": "Kingsfield", "layout": "Grand Prix", "round": 5, "theme": "airfield", "time": "day", "rain": 0.4, "laps": 58, "clockwise": true, "length_km": 5.23, "blurb": "A former airfield: very fast, flowing corners on a wide, open track."},
+		{"id": "kingsfield_international", "venue": "kingsfield", "name": "Kingsfield", "layout": "International", "round": 5, "theme": "airfield", "time": "day", "rain": 0.4, "laps": 63, "clockwise": true, "length_km": 4.87, "blurb": "Across the airfield from the loop to the hangar straight."},
+		{"id": "twin_bridges", "venue": "twin_bridges", "name": "Twin Bridges", "layout": "Grand Prix", "round": 6, "theme": "parkland", "time": "day", "rain": 0.35, "laps": 62, "clockwise": true, "length_km": 4.95, "blurb": "A figure of eight: technical esses, a hairpin and the crossover bridge."},
+		{"id": "twin_bridges_reverse", "venue": "twin_bridges", "name": "Twin Bridges", "layout": "Reverse", "round": 6, "theme": "parkland", "time": "day", "rain": 0.35, "laps": 62, "clockwise": false, "length_km": 4.95, "blurb": "The figure of eight the other way round, still over the bridge."},
+		{"id": "sandhaven", "venue": "sandhaven", "name": "Sandhaven", "layout": "Grand Prix", "round": 7, "theme": "desert", "time": "night", "rain": 0.0, "laps": 53, "clockwise": true, "length_km": 5.73, "blurb": "A desert night race: hard braking zones and tyres that wear fast."},
+		{"id": "sandhaven_reverse", "venue": "sandhaven", "name": "Sandhaven", "layout": "Reverse", "round": 7, "theme": "desert", "time": "night", "rain": 0.0, "laps": 53, "clockwise": false, "length_km": 5.73, "blurb": "The desert night the other way: new braking zones on old straights."},
+		{"id": "neon_marina", "venue": "neon_marina", "name": "Neon Marina", "layout": "Grand Prix", "round": 8, "theme": "city", "time": "night", "rain": 0.2, "laps": 66, "clockwise": false, "length_km": 4.60, "blurb": "Twenty corners between the city towers at night. The walls punish mistakes."},
+		{"id": "neon_marina_short", "venue": "neon_marina", "name": "Neon Marina", "layout": "Short", "round": 8, "theme": "city", "time": "night", "rain": 0.2, "laps": 70, "clockwise": false, "length_km": 4.36, "blurb": "The bay, the bridge and a quicker way back through the city."},
+		{"id": "sierra_alta", "venue": "sierra_alta", "name": "Sierra Alta", "layout": "Grand Prix", "round": 9, "theme": "mountain", "time": "day", "rain": 0.2, "laps": 75, "clockwise": true, "length_km": 4.07, "air": 0.78, "blurb": "High in the mountains: thin air, less downforce and a stadium section."},
+		{"id": "sierra_alta_reverse", "venue": "sierra_alta", "name": "Sierra Alta", "layout": "Reverse", "round": 9, "theme": "mountain", "time": "day", "rain": 0.2, "laps": 75, "clockwise": false, "length_km": 4.07, "air": 0.78, "blurb": "Into the stadium first, then down the mountainside the other way."},
+		{"id": "lakeside_isle", "venue": "lakeside_isle", "name": "Lakeside Isle", "layout": "Grand Prix", "round": 10, "theme": "lake", "time": "day", "rain": 0.3, "laps": 77, "clockwise": true, "length_km": 3.95, "blurb": "An island in a river: stop and go, a hairpin and a wall at the last chicane."},
+		{"id": "lakeside_isle_reverse", "venue": "lakeside_isle", "name": "Lakeside Isle", "layout": "Reverse", "round": 10, "theme": "lake", "time": "day", "rain": 0.3, "laps": 77, "clockwise": false, "length_km": 3.95, "blurb": "The island the other way round, with the hairpin to start."},
+		{"id": "hay_valley", "venue": "hay_valley", "name": "Hay Valley", "layout": "Grand Prix", "round": 11, "theme": "countryside", "time": "day", "rain": 0.35, "laps": 48, "clockwise": true, "length_km": 6.35, "blurb": "An old countryside circuit: narrow, cambered and quick, with grass beside the kerbs."},
+		{"id": "hay_valley_reverse", "venue": "hay_valley", "name": "Hay Valley", "layout": "Reverse", "round": 11, "theme": "countryside", "time": "day", "rain": 0.35, "laps": 48, "clockwise": false, "length_km": 6.35, "blurb": "The old countryside lap the other way round."},
+		{"id": "bellwood", "venue": "bellwood", "name": "Bellwood Speedway", "layout": "Road Course", "round": 12, "theme": "oval", "time": "day", "rain": 0.15, "laps": 66, "clockwise": false, "length_km": 4.59, "blurb": "One banked corner flat out, then a twisty infield."},
+		{"id": "cliffside", "venue": "cliffside", "name": "Cliffside", "layout": "Grand Prix", "round": 13, "theme": "cliff", "time": "day", "rain": 0.25, "laps": 61, "clockwise": true, "length_km": 4.96, "blurb": "Coastal cliffs above the sea: blind crests and one steep drop."},
+		{"id": "cliffside_reverse", "venue": "cliffside", "name": "Cliffside", "layout": "Reverse", "round": 13, "theme": "cliff", "time": "day", "rain": 0.25, "laps": 61, "clockwise": false, "length_km": 4.96, "blurb": "The cliffs the other way: the drop becomes a climb."},
+		{"id": "misty_hills", "venue": "misty_hills", "name": "Misty Hills", "layout": "Grand Prix", "round": 14, "theme": "hills", "time": "day", "rain": 0.65, "laps": 70, "clockwise": false, "length_km": 4.39, "blurb": "The rain round: a short, busy lap through wooded hills, anticlockwise."},
+		{"id": "misty_hills_reverse", "venue": "misty_hills", "name": "Misty Hills", "layout": "Reverse", "round": 14, "theme": "hills", "time": "day", "rain": 0.65, "laps": 70, "clockwise": true, "length_km": 4.39, "blurb": "Clockwise through the misty woods."},
+		{"id": "redrock_canyon", "venue": "redrock_canyon", "name": "Redrock Canyon", "layout": "Grand Prix", "round": 15, "theme": "canyon", "time": "day", "rain": 0.1, "laps": 55, "clockwise": false, "length_km": 5.50, "max_slope": 0.125, "blurb": "A red-rock canyon: a steep climb to the first corner and wide run-off."},
+		{"id": "redrock_canyon_national", "venue": "redrock_canyon", "name": "Redrock Canyon", "layout": "National", "round": 15, "theme": "canyon", "time": "day", "rain": 0.1, "laps": 75, "clockwise": false, "length_km": 4.05, "max_slope": 0.125, "blurb": "Up the climb and straight along the canyon floor to the stadium."},
+		{"id": "harbour_lights", "venue": "harbour_lights", "name": "Harbour Lights", "layout": "Grand Prix", "round": 16, "theme": "harbour", "time": "dusk_to_night", "rain": 0.05, "laps": 59, "clockwise": false, "length_km": 5.14, "blurb": "The finale: a marina island under the hotel bridge, from dusk into the night."},
+		{"id": "harbour_lights_short", "venue": "harbour_lights", "name": "Harbour Lights", "layout": "Short", "round": 16, "theme": "harbour", "time": "dusk_to_night", "rain": 0.05, "laps": 73, "clockwise": false, "length_km": 4.17, "blurb": "Straight up the island to the marina, missing the long run by the water."},
+		{"id": "bellwood_oval", "venue": "bellwood", "name": "Bellwood Speedway", "layout": "Oval", "round": 12, "theme": "oval", "time": "day", "rain": 0.15, "laps": 68, "clockwise": false, "length_km": 4.47, "blurb": "The bonus oval: two banked turns, flat out all the way round."},
 		{"id": "proving", "venue": "proving", "name": "The Proving Ground", "layout": "Test Loop", "round": 0, "theme": "proving", "time": "day", "rain": 0.0, "laps": 5, "blurb": "A quiet loop to learn the car."},
 	]
 
@@ -442,13 +487,13 @@ static func _hay_valley() -> TrackPlan:
 	p.straight(600)
 	p.mark("farm", {"side": 1, "distance": 120.0, "size": 300.0})
 	p.right(40, 250, {"bank": 3.0}).straight(400).left(50, 180, {"bank": 3.0}).straight(300)
-	p.right(110, 60, {"bank": 5.0})
+	p.right(110, 60, {"bank": 5.0, "width": 13.0, "outside": {"kind": RO.GRAVEL, "width": 22.0, "barrier": BA.TYRES}})
 	p.mark("grandstand", {"side": 1, "distance": 30.0, "size": 90.0})
 	p.straight(700, {"climb": 10.0}).left(40, 200, {"bank": 3.0}).right(70, 150, {"bank": 4.0})
 	p.mark("hills", {"side": 1, "distance": 200.0, "size": 500.0})
 	p.straight(AUTO, {"climb": 4.0}).right(60, 120, {"bank": 4.0}).straight(400)
 	p.mark("windmills", {"side": 1, "distance": 160.0, "size": 200.0})
-	p.right(50, 200, {"bank": 3.0}).straight(500, {"climb": -14.0}).left(30, 250)
+	p.right(50, 200, {"bank": 3.0, "outside": {"kind": RO.TARMAC, "width": 14.0, "barrier": BA.ARMCO}}).straight(500, {"climb": -14.0}).left(30, 250)
 	p.mark("farm", {"side": -1, "distance": 100.0, "size": 260.0})
 	p.right(60, 70, {"bank": 4.0})
 	p.mark("grandstand", {"side": 1, "distance": 30.0, "size": 100.0})
@@ -613,4 +658,85 @@ static func _harbour_lights() -> TrackPlan:
 static func _climb(p: TrackPlan, length: float, climb: float, count: int) -> TrackPlan:
 	for k in count:
 		p.straight(length / count, {"climb": climb / count})
+	return p
+
+
+# --- Second layouts ------------------------------------------------------
+
+## Greenfield Park's club circuit: from the third corner straight up the
+## middle of the park beside the lake to the back of the lap.
+static func _greenfield_club() -> TrackPlan:
+	var link := TrackPlan.new()
+	link.right(40, 100).straight(AUTO).chicane(false, 45, 30, 12).straight(300).right(70, 60)
+	link.mark("lake", {"side": 1, "distance": 220.0, "size": 300.0, "boats": true})
+	link.straight(AUTO).esses(true, 40, 70)
+	return _greenfield().shortcut(6, 23, link)
+
+
+## Monte Pineta's junior circuit: after the first chicane, a link road
+## through the pines to the long straight before the final corner.
+static func _monte_pineta_junior() -> TrackPlan:
+	var link := TrackPlan.new()
+	link.right(60, 60).straight(AUTO).chicane(true, 50, 25, 12).right(70, 60)
+
+	link.mark("forest", {"side": 1, "distance": 90.0, "size": 300.0, "trees": "pine"})
+	link.straight(AUTO).right(75, 70)
+	link.mark("grandstand", {"side": 1, "distance": 40.0, "size": 100.0})
+	return _monte_pineta().shortcut(5, 20, link)
+
+
+## Kingsfield's international circuit: from the long right after the loop
+## across the airfield to the hangar straight, missing the esses.
+static func _kingsfield_international() -> TrackPlan:
+	var link := TrackPlan.new()
+	link.right(40, 150).straight(AUTO)
+	link.mark("hangars", {"side": 1, "distance": 110.0, "size": 260.0})
+	link.right(90, 70).straight(AUTO)
+	return _kingsfield().shortcut(10, 17, link)
+
+
+## Neon Marina's short circuit: over the bridge, then straight up the
+## avenue to the run back to the last corners.
+static func _neon_marina_short() -> TrackPlan:
+	var link := TrackPlan.new()
+	link.straight(AUTO).left(90, 30)
+	link.mark("buildings", {"side": -1, "distance": 80.0, "size": 200.0, "towers": true})
+	link.straight(AUTO)
+	return _neon_marina().shortcut(6, 26, link)
+
+
+## Redrock Canyon's national circuit: from the esses straight along the
+## canyon floor to the stadium section.
+static func _redrock_canyon_national() -> TrackPlan:
+	var link := TrackPlan.new()
+	link.left(60, 50).straight(AUTO, {"climb": -14.0}).chicane(true, 45, 30, 12)
+	link.mark("rock_wall", {"side": -1, "distance": 140.0, "size": 400.0})
+	link.straight(500).left(90, 40).straight(AUTO, {"climb": -7.0})
+	link.mark("grandstand", {"side": 1, "distance": 50.0, "size": 140.0})
+	return _level(_redrock_canyon().shortcut(12, 24, link), 13)
+
+
+## Harbour Lights' short circuit: from the first corners straight up the
+## island to the marina section.
+static func _harbour_lights_short() -> TrackPlan:
+	var link := TrackPlan.new()
+	link.left(90, 40).straight(AUTO).left(30, 60)
+	link.mark("marina", {"side": -1, "distance": 160.0, "size": 300.0, "boats": true})
+	link.straight(AUTO).right(30, 60)
+	return _harbour_lights().shortcut(6, 21, link)
+
+## Misty Hills the other way round, clockwise. The start line moves a
+## little further from the corner that now comes before the pit entry.
+static func _misty_hills_reverse() -> TrackPlan:
+	var p := _misty_hills().reversed()
+	p.start_at += 40.0
+	return p
+
+
+## Sets one piece's climb so the lap's climbs add up to zero.
+static func _level(p: TrackPlan, piece: int) -> TrackPlan:
+	var total := 0.0
+	for pc in p.pieces:
+		total += float(pc.get("climb", 0.0))
+	p.pieces[piece]["climb"] = float(p.pieces[piece].get("climb", 0.0)) - total
 	return p
