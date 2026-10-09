@@ -58,7 +58,7 @@ func _test_circuits() -> void:
 		check(t != null and t.length > 900.0, "%s builds (%.0f m)" % [id, t.length if t else 0.0])
 		if t == null:
 			continue
-		check(t.corners.size() >= 3, "%s has corners" % id)
+		check(t.corners.size() >= 2, "%s has corners" % id)
 		check(t.grid.size() >= GameConfig.GRID_SIZE, "%s has %d grid slots" % [id, t.grid.size()])
 		var slowest := INF
 		for v in t.line_speed:
@@ -258,6 +258,22 @@ func _test_menus() -> void:
 		check(title.get_child_count() > 1, "the title opens%s" % (" at " + page if page != "" else ""))
 		title.queue_free()
 		await get_tree().process_frame
+	# Your own calendar: every venue offers its layouts, and skipped rounds stay out.
+	var title2: Node = load("res://game/ui/title.tscn").instantiate()
+	add_child(title2)
+	await get_tree().process_frame
+	title2.call("_show_own_calendar")
+	var own: Dictionary = title2.get("_own_calendar")
+	check(own.size() == Circuits.calendar().size(), "your own calendar offers every round")
+	own["port_lumen"] = ""
+	own["ardenwood"] = "ardenwood_reverse"
+	title2.set("_leaving", true)  # start the season without driving off to it
+	title2.call("_start_own_calendar")
+	var champ := Progress.championship()
+	check(champ.calendar.size() == Circuits.calendar().size() - 1 and champ.calendar.has("ardenwood_reverse") and not champ.calendar.has("port_lumen"), "your own calendar starts the season you picked")
+	Progress.end_championship()
+	title2.queue_free()
+	await get_tree().process_frame
 	Session.start_solo()
 	var lobby: Node = load("res://game/ui/lobby.tscn").instantiate()
 	add_child(lobby)

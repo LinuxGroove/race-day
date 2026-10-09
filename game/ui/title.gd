@@ -8,7 +8,7 @@ const TITLE_COLOR := Color("ffd23f")
 const DIFFICULTY := [[40, "Easy (40)"], [55, "Gentle (55)"], [70, "Medium (70)"], [85, "Hard (85)"], [95, "Expert (95)"], [100, "Legend (100)"], [110, "Beyond (110)"]]
 const DISTANCE := [[3, "3 laps"], [5, "5 laps"], [8, "8 laps"], [12, "12 laps"], [20, "20 laps"]]
 const QUALI := [["none", "No qualifying"], ["one_lap", "One lap"], ["timed", "Timed session"], ["knockout", "Knockout (Q1, Q2, Q3)"]]
-const SEASON := [[4, "Mini (4 rounds)"], [8, "Short (8 rounds)"], [16, "Full season (16 rounds)"]]
+const SEASON := [[4, "Mini (4 rounds)"], [8, "Short (8 rounds)"], [16, "Full season (16 rounds)"], [0, "Your own calendar"]]
 
 ## Which page to open on arrival (championship, career, time_trial, school).
 var open_page := ""
@@ -29,6 +29,8 @@ var _net_up := true
 var _net_check_at := 0
 var _leaving := false
 var _season_len := 8
+## Your own calendar: venue -> the layout raced there, or "" to skip it.
+var _own_calendar := {}
 var _champ_laps := 5
 var _champ_diff := 70
 var _champ_quali := "one_lap"
@@ -286,11 +288,60 @@ func _start_championship() -> void:
 	var cal := Array(Circuits.calendar())
 	if cal.is_empty():
 		cal = Array(Circuits.ids())
+	if _season_len == 0:
+		_show_own_calendar()
+		return
 	# Shorter seasons keep a spread of the calendar.
 	var pick := []
 	var n := mini(_season_len, cal.size())
 	for i in n:
 		pick.append(cal[int(floor(i * cal.size() / float(n)))])
+	Progress.start_championship(pick, _champ_laps, _champ_diff, _champ_quali)
+	_race_championship()
+
+
+## Pick the rounds and the layout raced at each.
+func _show_own_calendar() -> void:
+	_clear()
+	_col.add_child(LGUi.label("Your calendar", "HeaderMedium"))
+	_hint("Pick the rounds, and which layout to race at each.")
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(600, 400)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	_col.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 4)
+	scroll.add_child(list)
+	for gp in Circuits.calendar():
+		var info := Circuits.info(gp)
+		var venue := str(info.venue)
+		var options := [["", "Not this year"]]
+		for id in Circuits.ids():
+			var other := Circuits.info(id)
+			if str(other.venue) == venue:
+				options.append([id, str(other.layout)])
+		var current: String = _own_calendar.get(venue, gp)
+		_own_calendar[venue] = current
+		list.add_child(LGCycler.make("%d. %s" % [int(info.round), info.name], options, current, _set_own_round.bind(venue), 560))
+	_col.add_child(LGUi.button("Start the season", _start_own_calendar))
+	_col.add_child(LGUi.button("Back", _show_championship))
+	LGUi.focus_first(_col)
+
+
+func _set_own_round(v: Variant, venue: String) -> void:
+	_own_calendar[venue] = str(v)
+
+
+func _start_own_calendar() -> void:
+	var pick := []
+	for gp in Circuits.calendar():
+		var id: String = _own_calendar.get(str(Circuits.info(gp).venue), gp)
+		if id != "":
+			pick.append(id)
+	if pick.is_empty():
+		_hint("Pick at least one round.")
+		return
 	Progress.start_championship(pick, _champ_laps, _champ_diff, _champ_quali)
 	_race_championship()
 
@@ -379,6 +430,7 @@ func _show_time_trial() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(600, 420)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	_col.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 6)
