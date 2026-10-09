@@ -359,6 +359,8 @@ func toggle_pause() -> void:
 	# Online and LAN races keep running; the menu sits on top.
 	if not Session.is_networked():
 		get_tree().paused = true
+		for p in players:
+			p.stop_rumble()
 
 
 func on_pause_closed() -> void:
@@ -827,3 +829,5 @@ func on_player_left(peer: int) -> void:
 
 func _exit_tree() -> void:
 	AudioBudget.listeners = []
+	for p in players:
+		p.stop_rumble()

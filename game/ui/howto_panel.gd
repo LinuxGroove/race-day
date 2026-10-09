@@ -15,6 +15,7 @@ const CONTROLS := [
 	["drs", "DRS (when the HUD says it's ready)"],
 	["limiter", "Pit limiter"],
 	["pit", "Ask to pit this lap"],
+	["tyres", "Tyres for the next stop"],
 	["camera", "Change camera"],
 	["look_back", "Look behind"],
 	["rewind", "Rewind (offline)"],
@@ -40,7 +41,7 @@ static func pages() -> Array:
 		{"title": "The braking line", "body":
 			"The line on the road shows where to go and how fast: green, you can go faster; yellow, about right; red, brake now.\n\nAssists help while you learn: braking and steering help, anti-lock brakes, traction control, automatic gears, a pit lane that drives itself, and rewind. Take them off one at a time in the pause menu as you get quicker."},
 		{"title": "Tyres and pit stops", "body":
-			"Soft tyres are fastest and wear quickest; hard last longest. In the wet, use intermediates or full wets. In longer races you must use two kinds of dry tyre, so plan a stop.\n\nPress the pit button to ask for a stop. Slow down for the pit entry, turn the limiter on before the white line, and stop in your box. The crew does the rest."},
+			"Soft tyres are fastest and wear quickest; hard last longest. In the wet, use intermediates or full wets. In longer races you must use two kinds of dry tyre, so plan a stop.\n\nPress the pit button to ask for a stop, and the tyres button to pick what goes on. Slow down for the pit entry, turn the limiter on before the white line, and stop in your box. The crew does the rest."},
 		{"title": "Flags and the safety car", "body":
 			"Yellow: slow down, danger ahead, no overtaking. Blue: a faster car is lapping you, let it by. The safety car and the virtual safety car slow the whole field after a crash: hold your place until the green flag.\n\nAll four wheels past the white lines in a corner is a warning; a few of those and it's a time penalty. Speeding in the pit lane is a penalty too."},
 		{"title": "Overtaking", "body":

@@ -99,19 +99,20 @@ const ACTIONS := {
 	"brake": ["key:S", "key:Down", "axis:lt+"],
 	"shift_up": ["key:E", "joy:a"],
 	"shift_down": ["key:Q", "joy:x"],
-	"drs": ["key:F", "joy:y"],
-	"limiter": ["key:L", "joy:rb"],
+	"drs": ["key:F", "joy:rb"],
+	"limiter": ["key:L", "joy:lb"],
 	"look_back": ["key:B", "joy:b"],
 	"look_left": ["key:Z", "axis:rx-"],
 	"look_right": ["key:X", "axis:rx+"],
-	"camera": ["key:C", "joy:back"],
-	"rewind": ["key:R", "joy:lb"],
+	"camera": ["key:C", "joy:y"],
+	"rewind": ["key:R", "joy:back"],
 	"pit": ["key:P", "joy:down"],
+	"tyres": ["key:T", "joy:right"],
 	"tower": ["key:Tab", "joy:up"],
 	"pause": ["key:Escape", "joy:start"],
 }
 ## Actions each seat tracks for just_pressed.
-const SEAT_ACTIONS := ["shift_up", "shift_down", "limiter", "camera", "rewind", "tower", "pit"]
+const SEAT_ACTIONS := ["shift_up", "shift_down", "limiter", "camera", "rewind", "tower", "pit", "tyres"]
 
 ## The four cameras, in the order the camera button cycles them.
 const CAMERAS := ["chase_near", "chase_far", "tcam", "cockpit"]

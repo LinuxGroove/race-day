@@ -26,6 +26,8 @@ var autopilot := false
 var line_mode := "corners"
 ## Assists a Racing School test fixes, whatever the settings say.
 var overrides := {}
+## Seconds to keep showing the tyres picked for the next stop.
+var tyres_shown_t := 0.0
 
 var _steer := 0.0
 var _throttle := 0.0
@@ -33,6 +35,10 @@ var _brake := 0.0
 var _pilot: AiDriver
 var _was_stopped := false
 var _profile := PackedFloat32Array()
+var _hit := 0.0
+var _hit_t := 0.0
+var _rumble := Vector2.ZERO
+var _rumble_t := 0.0
 
 
 func _init(p_seat: LGSeat, p_entry: Race.Entry, p_race: Race) -> void:
@@ -74,8 +80,14 @@ func drive(dt: float, frozen := false) -> void:
 	var input := entry.input
 	var sim := entry.sim
 	seat.poll(GameConfig.SEAT_ACTIONS)
+	_update_rumble(dt, frozen)
 	if seat.just_pressed("pit") and not race.track.pit.is_empty():
 		pit_requested = not pit_requested
+	# Tyres for the next stop: soft, medium, hard, intermediate, wet.
+	tyres_shown_t -= dt
+	if seat.just_pressed("tyres") and not race.track.pit.is_empty():
+		entry.next_compound = (entry.next_compound + 1) % Tyres.NAMES.size()
+		tyres_shown_t = 2.5
 	sim.auto_gears = auto_gears
 	if _assisted_pit(dt, input):
 		return
@@ -128,6 +140,46 @@ func drive(dt: float, frozen := false) -> void:
 		input.shift_down = seat.just_pressed("shift_down")
 	input.drs = seat.held("drs")
 	input.limiter = seat.just_pressed("limiter")
+
+
+## Rumble carries the kerbs, the grass and gravel, locked wheels and contact,
+## so the cameras never have to shake. Weak is the light motor, strong the
+## heavy one.
+func _update_rumble(dt: float, frozen: bool) -> void:
+	var sim := entry.sim
+	var want := Vector2.ZERO
+	if sim.impact > 2.0:
+		_hit = clampf(sim.impact / 18.0, 0.35, 1.0)
+		_hit_t = 0.3
+	_hit_t -= dt
+	if not frozen and not autopilot and bool(LGSettings.get_value("input", "vibration")):
+		var v := absf(sim.forward_speed())
+		var pace := clampf(v / 40.0, 0.3, 1.0)
+		want.x = sim.on_kerb * 0.5 * pace
+		if sim.surface in [CarSim.Surface.GRASS, CarSim.Surface.GRAVEL, CarSim.Surface.SAND] and v > 3.0:
+			want = Vector2(maxf(want.x, 0.25), 0.3 * pace)
+		if sim.front_lock > 0.2 and v > 5.0:
+			want.x = maxf(want.x, sim.front_lock * 0.45)
+		if _hit_t > 0.0:
+			want = Vector2(maxf(want.x, _hit), maxf(want.y, _hit))
+	# Only tell the pads when it changes, or before the last buzz runs out.
+	_rumble_t -= dt
+	if want.distance_to(_rumble) < 0.05 and _rumble_t > 0.0:
+		return
+	_rumble = want
+	_rumble_t = 0.1
+	for pad in seat.pads():
+		if want == Vector2.ZERO:
+			Input.stop_joy_vibration(pad)
+		else:
+			Input.start_joy_vibration(pad, want.x, want.y, 0.15)
+
+
+## Stops the pads buzzing (pause, the end of the race).
+func stop_rumble() -> void:
+	_rumble = Vector2.ZERO
+	for pad in seat.pads():
+		Input.stop_joy_vibration(pad)
 
 
 ## Steering help: no more lock than the front tyres can use, and a touch of

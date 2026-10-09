@@ -206,7 +206,9 @@ func _process(dt: float) -> void:
 	if driver.piloting:
 		_pit.text = "PIT ASSIST"
 	elif driver.pit_requested:
-		_pit.text = "BOX THIS LAP"
+		_pit.text = "BOX THIS LAP: %s" % Tyres.NAMES[e.next_compound].to_upper()
+	elif driver.tyres_shown_t > 0.0:
+		_pit.text = "NEXT TYRES: %s" % Tyres.NAMES[e.next_compound].to_upper()
 	elif e.sim.limiter_on:
 		_pit.text = "LIMITER"
 	_banner_t -= dt
@@ -224,10 +226,32 @@ func _process(dt: float) -> void:
 				scene.sounds.radio()
 			_radio_box.visible = bool(LGSettings.get_value("hud", "radio"))
 			_radio_t = 3.6
-	if e.sim.wear > 0.7 and not _said.has("wear") and scene.kind == Race.Kind.RACE:
-		_said["wear"] = true
-		_say("Tyres are going off. Press %s to box." % LGInput.label_for_action("pit"))
+	if scene.kind == Race.Kind.RACE and race.phase == Race.Phase.RACING and not e.finished and not e.retired:
+		_engineer(race, e)
 	_map.visible = bool(LGSettings.get_value("hud", "map"))
+
+
+## The race engineer's strategy calls: worn tyres, the pit window for the
+## second compound, and the weather.
+func _engineer(race: Race, e: Race.Entry) -> void:
+	var box := LGInput.label_for_action("pit")
+	var c := e.sim.compound
+	if Tyres.is_slick(c) and race.wetness > 0.4 and not _said.has("wet"):
+		_said["wet"] = true
+		e.next_compound = Tyres.INTER if race.wetness < 0.75 else Tyres.WET
+		_say("It's wet out there. Box for %ss: press %s." % [Tyres.NAMES[e.next_compound].to_lower(), box])
+	elif not Tyres.is_slick(c) and race.wetness < 0.15 and not _said.has("dry"):
+		_said["dry"] = true
+		e.next_compound = Tyres.MEDIUM
+		_say("The track's drying. Box for slicks when you're ready.")
+	elif e.sim.wear > 0.7 and not _said.has("wear"):
+		_said["wear"] = true
+		_say("Tyres are going off. Press %s to box." % box)
+	elif race.mandatory_compounds and e.compounds.size() < 2 and Tyres.is_slick(c) and race.wetness < 0.3 \
+			and e.lap >= int(race.laps * 0.35) and race.laps - e.lap >= 2 and not _said.has("window"):
+		_said["window"] = true
+		_say("Pit window's open. You still need the %s tyres: press %s to change, %s to box." % [
+			Tyres.NAMES[e.next_compound].to_lower(), LGInput.label_for_action("tyres"), box])
 
 
 func _update_top(race: Race, e: Race.Entry) -> void:

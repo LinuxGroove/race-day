@@ -92,7 +92,7 @@ func on_event(ev: Dictionary) -> void:
 static func _pack(e: Race.Entry) -> Array:
 	var s := e.sim
 	return [s.pos, s.yaw, s.vel, s.yaw_rate, s.steer_angle, s.gear, s.rpm, e.input.throttle,
-		s.compound, s.wear, s.damage, s.wing_damage, s.limiter_on, s.drs_open, e.input.brake]
+		s.compound, s.wear, s.damage, s.wing_damage, s.limiter_on, s.drs_open, e.input.brake, e.next_compound]
 
 
 func _unpack(e: Race.Entry, a: Array, snap: bool) -> void:
@@ -114,6 +114,7 @@ func _unpack(e: Race.Entry, a: Array, snap: bool) -> void:
 	s.limiter_on = a[12]
 	s.drs_open = a[13]
 	e.input.brake = a[14]
+	e.next_compound = a[15]
 	s.speed = s.vel.length()
 	s.wheel_turn_front += s.forward_speed() / s.spec.wheel_radius * Race.DT * CARS_EVERY
 	s.wheel_turn_rear = s.wheel_turn_front

@@ -56,8 +56,8 @@ network at all.
 
 ## Controls
 
-Controller first; the keyboard always works. Every binding can be changed in
-the settings.
+Controller first; the keyboard always works. Kerbs, the grass, locked wheels
+and contact come through the controller's rumble, never the camera.
 
 | Action | Controller | Keyboard |
 |---|---|---|
@@ -65,13 +65,14 @@ the settings.
 | Throttle | RT | W or Up |
 | Brake (hold when stopped to reverse) | LT | S or Down |
 | Shift up, shift down (manual gears) | A, X | E, Q |
-| DRS | Y | F |
-| Pit limiter | RB | L |
+| DRS | RB | F |
+| Pit limiter | LB | L |
 | Ask to pit this lap | D-pad down | P |
-| Change camera | View / Back | C |
-| Look behind | B | B |
+| Tyres for the next stop | D-pad right | T |
+| Change camera | Y | C |
+| Look behind (hold) | B | B |
 | Look left, right | Right stick | Z, X |
-| Rewind (offline) | LB | R |
+| Rewind (offline) | View / Back | R |
 | Timing tower | D-pad up | Tab |
 | Pause | Menu / Start | Esc |
 
