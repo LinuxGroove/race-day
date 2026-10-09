@@ -15,8 +15,9 @@ const STEP := 2.0
 const PIT_WALL_GAP := 3.0
 const PIT_LANE_WIDTH := 11.0
 const PIT_LIMIT_KMH := 80.0
-## Kerb width outside the white line.
+## Kerb width outside the white line, and how far kerbs stand above the road.
 const KERB_WIDTH := 1.6
+const KERB_LIFT := 0.03
 
 ## A point on the track: where a position is along the lap and across it.
 class Spot:
@@ -52,6 +53,10 @@ var run_kind := [[], []]
 var run_width := [[], []]
 var barrier := [[], []]
 var kerb := [[], []]
+## Distance from the centreline to the barrier per sample and side, pulled in
+## on the inside of tight corners so the ground never folds over itself. The
+## cars hit the barriers here and the view stands them here.
+var bar := [PackedFloat32Array(), PackedFloat32Array()]
 
 var line_off := PackedFloat32Array()
 var line_speed := PackedFloat32Array()
@@ -180,12 +185,19 @@ func runoff_width(s: float, side: int) -> float:
 
 ## Distance from the centreline to the barrier on a side (positive).
 func barrier_off(s: float, side: int) -> float:
-	var off := value_at(half, s) + runoff_width(s, side)
-	if has_kerb(s, side):
-		off += KERB_WIDTH
-	if not pit.is_empty() and side == (0 if pit.side > 0 else 1) and in_pit_range(s):
-		off = maxf(off, pit.outer_lat)
-	return off
+	return value_at(bar[side], s)
+
+
+## The height of the ground a wheel rolls on at a point: the road with its
+## banking, the kerbs standing a little proud of it, and the run-off. Fills
+## `out` with where the point is.
+func ground_y(p: Vector2, hint: int, out: Spot) -> float:
+	locate(p, hint, out)
+	var a := absf(out.lat)
+	var side := 0 if out.lat > 0.0 else 1
+	if a > out.half and a < out.half + KERB_WIDTH and has_kerb(out.s, side) and a < barrier_off(out.s, side):
+		return out.y + KERB_LIFT
+	return out.y
 
 
 func has_kerb(s: float, side: int) -> bool:
@@ -392,6 +404,7 @@ func _build() -> void:
 	_limit_runoff()
 	_find_corners()
 	_kerbs()
+	_barriers()
 	RacingLine.compute(self)
 	_sectors_and_drs()
 	_grid()
@@ -801,6 +814,34 @@ func _mark_kerb(side: int, from: float, to: float) -> void:
 		kerb[side][kk] = 1
 
 
+## Where the barriers stand: past the run-off and kerbs (and the pit lane on
+## its side), but no further in on the inside of a tight corner than most of
+## its radius, where the ground would fold over itself.
+func _barriers() -> void:
+	for side in 2:
+		bar[side].resize(n)
+		for i in n:
+			var s := i * step
+			var off := half[i] + float(run_width[side][i])
+			if kerb[side][i] != 0:
+				off += KERB_WIDTH
+			if not pit.is_empty() and side == (0 if pit.side > 0 else 1) and in_pit_range(s):
+				off = maxf(off, pit.outer_lat)
+			bar[side][i] = off
+	for i in n:
+		var kl := 0.0
+		var kr := 0.0
+		for k in range(-8, 9):
+			var c := curv[posmod(i + k, n)]
+			kl = maxf(kl, c)
+			kr = maxf(kr, -c)
+		var h := half[i]
+		if kl > 0.0001:
+			bar[0][i] = clampf(bar[0][i], h + 0.6, maxf(h + 0.6, 0.85 / kl))
+		if kr > 0.0001:
+			bar[1][i] = clampf(bar[1][i], h + 0.6, maxf(h + 0.6, 0.85 / kr))
+
+
 func _pit_lane() -> void:
 	if plan.pit_before <= 0.0:
 		pit = {}
@@ -819,7 +860,7 @@ func _pit_lane() -> void:
 		"wall_lat": wall_lat,
 		"lane_lat": wall_lat + 3.5,
 		"box_lat": wall_lat + 8.5,
-		"outer_lat": wall_lat + PIT_LANE_WIDTH,
+		"outer_lat": maxf(wall_lat + PIT_LANE_WIDTH, plan.pit_outer_min),
 		"boxes": [],
 	}
 	# Ten teams' boxes, 15 m apart, centred between the speed limit lines.

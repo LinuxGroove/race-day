@@ -9,7 +9,10 @@ extends SceneTree
 ##   --theme=NAME --time=NAME   override the layout's scenery or time of day
 ##   --detail=0|1|2  scenery detail (default 1)
 ##   --shots=a,b     any of grid, corner, chase, bird, pit, feature, landmarks,
-##                   night, rain, top (default all but landmarks and top)
+##                   night, rain, top, contact (default all but landmarks, top
+##                   and contact)
+##                   contact: close up on cars driven into the barriers (on a
+##                   straight and the inside of the tightest corner) and on a kerb
 ##                   top: straight down on the corners, with the simulation's
 ##                   road edges (yellow) and barriers (magenta) drawn over
 ##   --cars          puts a few cars on the grid for scale
@@ -114,6 +117,8 @@ func _shot(shot: String) -> void:
 	atmo.set_rain(0.0)
 	atmo.set_time(0.0)
 	match shot:
+		"contact":
+			await _contact()
 		"grid":
 			var back := track.wrap_s(-60.0)
 			_look(track.world(back, 0.0, 3.0), track.world(40.0, 0.0, 1.5))
@@ -304,6 +309,75 @@ func _edge_lines() -> MeshInstance3D:
 	mi.material_override = mat
 	root.add_child(mi)
 	return mi
+
+
+## Cars driven into the barriers and onto a kerb, from close by.
+func _contact() -> void:
+	# Into the barrier on a straight, nose first.
+	var s := 0.0
+	for i in track.n:
+		if absf(track.curv[i]) < 0.0005 and absf(track.curv[(i + 25) % track.n]) < 0.0005:
+			s = i * track.step + 10.0
+			break
+	var a := _crash(s, 0, 0.45, 25.0, 0)
+	await _close_up(a, 0, 1.0, "contact_straight")
+	# Into the barrier on the inside of the tightest corner.
+	var tight: Dictionary = {}
+	for c in track.corners:
+		if tight.is_empty() or float(c.radius) < float(tight.radius):
+			tight = c
+	if not tight.is_empty():
+		var side := 0 if int(tight.dir) > 0 else 1
+		var b := _crash(track.wrap_s(float(tight.apex) - 14.0), side, 0.6, 15.0, 1)
+		await _close_up(b, side, 1.0, "contact_inside")
+	# On a kerb.
+	for c in track.corners:
+		var side := 0 if int(c.dir) > 0 else 1
+		var apex := float(c.apex)
+		if track.has_kerb(apex, side):
+			var sg := 1.0 if side == 0 else -1.0
+			var sim := CarSim.new(Teams.spec_for(3), track)
+			sim.set_body(str(Teams.team(3).chassis))
+			sim.place(apex, sg * (track.value_at(track.half, apex) + 0.5))
+			var v := CarView.create(3)
+			root.add_child(v)
+			v.follow(sim, 0.016)
+			await _close_up(sim, side, -1.0, "contact_kerb")
+			break
+
+
+## Drives a car into the barrier on `side` from `s`, turned `angle` towards
+## it at `speed`, until it stops against it. Returns the car.
+func _crash(s: float, side: int, angle: float, speed: float, team: int) -> CarSim:
+	var sg := 1.0 if side == 0 else -1.0
+	var sim := CarSim.new(Teams.spec_for(team), track)
+	sim.set_body(str(Teams.team(team).chassis))
+	sim.place(s, sg * (track.barrier_off(s, side) - 7.0), sg * angle)
+	sim.vel = sim.forward2() * speed
+	var input := CarInput.new()
+	input.brake = 0.3
+	for k in 360:
+		sim.step(Race.DT, input)
+	var v := CarView.create(team)
+	root.add_child(v)
+	v.follow(sim, 0.016)
+	print("  car against the barrier on side %d: %.2f m from the barrier at its middle" % [side, track.barrier_off(sim.spot.s, side) - absf(sim.spot.lat)])
+	return sim
+
+
+## A low camera beside a car, from the track (`from` 1) or from behind the
+## barrier's side looking along it (`from` -1, for kerbs: from the road).
+func _close_up(sim: CarSim, side: int, from: float, name: String) -> void:
+	var sg := 1.0 if side == 0 else -1.0
+	var n := track.normal_at(sim.spot.s) * sg
+	var t := track.tangent_at(sim.spot.s)
+	var p := sim.pos + Vector3(0, 0.5, 0)
+	var eye := p - Vector3(n.x, 0, n.y) * 6.5 * from - Vector3(t.x, 0, t.y) * 5.0 + Vector3.UP * 1.6
+	_look(eye, p)
+	await _save(name)
+	# Straight down on it.
+	_look(p + Vector3.UP * 9.0 + Vector3(t.x, 0, t.y) * 0.01, p)
+	await _save(name + "_above")
 
 
 ## A few cars on the grid, for judging scale.

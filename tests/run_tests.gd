@@ -20,15 +20,16 @@ func _ready() -> void:
 	LGSettings.register_defaults(GameConfig.SETTING_DEFAULTS)
 	LGTheme.apply(get_tree().root)
 	LGInput.register_actions(GameConfig.ACTIONS)
+	LGInput.extend_ui_actions()
 	LGSettings.set_value("player", "name", "Tester", false)
 	# Keep the player's own progress out of it.
 	Progress.save_path = "user://test_progress.cfg"
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Progress.save_path))
 	Progress.load_progress()
 	await get_tree().process_frame
-	for t in ["_test_circuits", "_test_teams", "_test_weather", "_test_ghost", "_test_lap_reference",
+	for t in ["_test_circuits", "_test_teams", "_test_car_bodies", "_test_barriers", "_test_wheels_on_ground", "_test_weather", "_test_ghost", "_test_lap_reference",
 			"_test_session_config", "_test_progress", "_test_snapshot", "_test_safety_car", "_test_net_pack",
-			"_test_school_stretches", "_test_menus", "_test_race_scene", "_test_school_run", "_test_knockout", "_test_races"]:
+			"_test_school_stretches", "_test_menus", "_test_name_keyboard", "_test_race_scene", "_test_school_run", "_test_knockout", "_test_races"]:
 		if only != "" and t != only:
 			continue
 		printerr("- ", t)
@@ -78,6 +79,95 @@ func _test_teams() -> void:
 	check(total == 101, "points for the top ten add up to 101")
 	for i in Teams.TEAMS.size():
 		check(CarView.CHASSIS.has(str(Teams.team(i).chassis)), "%s has a chassis" % Teams.team(i).name)
+
+
+## Each chassis's footprint in CarSim covers its model, and its tyres
+## stand on the ground.
+func _test_car_bodies() -> void:
+	for chassis: String in CarSim.BODIES:
+		var team := -1
+		for i in Teams.TEAMS.size():
+			if str(Teams.team(i).chassis) == chassis:
+				team = i
+		if team < 0:
+			continue
+		var v := CarView.create(team)
+		var lo := Vector3.INF
+		var hi := -Vector3.INF
+		var wheel_bottom := INF
+		for mi: MeshInstance3D in v.find_children("*", "MeshInstance3D", true, false):
+			if mi.mesh == null or mi.name in ["Helmet", "RainLight"]:
+				continue
+			var b: AABB = v._local_xf(v, mi) * mi.get_aabb()
+			lo = lo.min(b.position)
+			hi = hi.max(b.end)
+			if "wheel" in str(mi.name).to_lower():
+				wheel_bottom = minf(wheel_bottom, b.position.y)
+		var body: Vector3 = CarSim.BODIES[chassis]
+		var wide := maxf(-lo.x, hi.x)
+		check(wide <= body.x + 0.02 and wide >= body.x - 0.1, "the %s's footprint is as wide as its model (%.2f, model %.2f)" % [chassis, body.x, wide])
+		check(hi.z <= body.y + 0.02 and hi.z >= body.y - 0.1, "the %s's nose reaches as far as its model's" % chassis)
+		check(-lo.z <= body.z + 0.02 and -lo.z >= body.z - 0.1, "the %s's tail reaches as far as its model's" % chassis)
+		check(absf(wheel_bottom) < 0.01, "the %s's tyres stand on the ground (%.3f)" % [chassis, wheel_bottom])
+		v.free()
+
+
+## A car driven into a barrier at an angle stays on its side of it, corners
+## and all, and turns to scrape along it.
+func _test_barriers() -> void:
+	var t := Circuits.track(Circuits.ids()[0])
+	var sim := CarSim.new(Teams.spec_for(0), t)
+	sim.set_body("racer")
+	var s := 0.0
+	# A straight stretch.
+	for i in t.n:
+		if absf(t.curv[i]) < 0.0005 and absf(t.curv[(i + 20) % t.n]) < 0.0005:
+			s = i * t.step
+			break
+	sim.place(s, t.barrier_off(s, 0) - 6.0, 0.5)
+	sim.vel = sim.forward2() * 30.0
+	var input := CarInput.new()
+	var worst := -INF
+	var start_rel := 0.5
+	for k in 240:
+		sim.step(Race.DT, input)
+		for c in 4:
+			var r := sim.forward2() * (sim.nose if c < 2 else -sim.tail) + sim.left2() * (sim.half_width if c % 2 == 0 else -sim.half_width)
+			var sp := t.locate(Vector2(sim.pos.x, sim.pos.z) + r, sim.spot.idx)
+			worst = maxf(worst, sp.lat - t.barrier_off(sp.s, 0))
+	var rel := wrapf(sim.yaw - t.heading_at(sim.spot.s), -PI, PI)
+	check(worst < 0.05, "a car's corners stay inside the barrier (%.2f m past it)" % worst)
+	check(sim.wall_t < 2.0, "the car hit the barrier")
+	check(absf(rel) < start_rel - 0.2, "hitting the barrier nose first turns the car along it (%.2f rad)" % rel)
+
+
+## Every tyre of a car sits on the road, crests, dips, banking and kerbs,
+## within a couple of centimetres.
+func _test_wheels_on_ground() -> void:
+	for id in ["bellwood_oval", "monte_pineta", Circuits.ids()[0]]:
+		var t := Circuits.track(id)
+		var sim := CarSim.new(Teams.spec_for(0), t)
+		var v := CarView.create(0)
+		add_child(v)
+		var worst_sink := 0.0
+		var worst_float := 0.0
+		var probe := Track.Spot.new()
+		var s := 0.0
+		while s < t.length:
+			for lat in [0.0, t.value_at(t.half, s) - 1.0, -(t.value_at(t.half, s) + 0.6)]:
+				sim.place(s, lat)
+				v.follow(sim, 1.0 / 60.0)
+				for mi: MeshInstance3D in v.find_children("wheel*", "MeshInstance3D", true, false):
+					# The bottom of the tyre, under its middle.
+					var b: AABB = v._local_xf(v, mi) * mi.get_aabb()
+					var c := v.global_transform * Vector3(b.get_center().x, b.position.y, b.get_center().z)
+					var ground := t.ground_y(Vector2(c.x, c.z), sim.spot.idx, probe)
+					worst_sink = maxf(worst_sink, ground - c.y)
+					worst_float = maxf(worst_float, c.y - ground)
+			s += 23.0
+		check(worst_sink < 0.03, "%s: no tyre sinks into the ground (%.3f m at worst)" % [id, worst_sink])
+		check(worst_float < 0.04, "%s: no tyre floats over it (%.3f m at worst)" % [id, worst_float])
+		v.queue_free()
 
 
 func _test_weather() -> void:
@@ -286,6 +376,35 @@ func _test_menus() -> void:
 
 ## A race weekend on screen: the scene builds, the lights go out and the
 ## player's car (on autopilot) gets going.
+## Choosing your name with a controller brings up the on-screen keyboard.
+func _test_name_keyboard() -> void:
+	var title: Node = load("res://game/ui/title.tscn").instantiate()
+	add_child(title)
+	await get_tree().process_frame
+	title._show_driver()
+	await get_tree().process_frame
+	var name_button: Button = null
+	for b: Button in title.find_children("*", "Button", true, false):
+		if b.text.begins_with("Name"):
+			name_button = b
+	name_button.grab_focus()
+	await get_tree().process_frame
+	for pressed in [true, false]:
+		var ev := InputEventJoypadButton.new()
+		ev.button_index = JOY_BUTTON_A
+		ev.pressed = pressed
+		Input.parse_input_event(ev)
+		for i in 3:
+			await get_tree().process_frame
+	var boards := get_tree().root.find_children("*", "OnScreenKeyboard", true, false)
+	check(boards.size() == 1, "pressing A on Name opens the on-screen keyboard")
+	for kb in boards:
+		kb.get_parent().queue_free()
+	title.set("_leaving", true)
+	title.queue_free()
+	await get_tree().process_frame
+
+
 func _test_race_scene() -> void:
 	Session.start_solo()
 	var settings: Dictionary = Session.settings.duplicate()

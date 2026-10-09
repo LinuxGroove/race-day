@@ -20,6 +20,7 @@ var driver: PlayerDriver
 
 var _pos: Label
 var _lap: Label
+var _times_box: PanelContainer
 var _lap_time: Label
 var _last: Label
 var _best: Label
@@ -78,6 +79,7 @@ func _ready() -> void:
 	tr.offset_top = 14
 	tr.custom_minimum_size.x = 210 * _font_scale
 	add_child(tr)
+	_times_box = tr
 	var tcol := VBoxContainer.new()
 	tr.add_child(tcol)
 	_lap_time = _label("", 34, TEXT, LGTheme.heading_font)
@@ -265,7 +267,7 @@ func _update_top(race: Race, e: Race.Entry) -> void:
 			for i in board.size():
 				if int(board[i].id) == e.id:
 					p = i + 1
-			_pos.text = "P%d" % p if p > 0 else "QUALI"
+			_pos.text = "P%d" % p if p > 0 else "QUALIFYING"
 			var left := scene.quali_clock_left()
 			_lap.text = ("%s LEFT" % GameConfig.time_text(left, 0)) if left > 0.0 else ("OUT LAP" if e.lap < 1 else "FLYING LAP")
 			if left == 0.0:
@@ -301,6 +303,8 @@ func _update_times(race: Race, e: Race.Entry) -> void:
 		_lap_time.add_theme_color_override("font_color", TEXT)
 	_last.text = "LAST  %s" % GameConfig.time_text(e.last_lap) if e.last_lap > 0.0 else ""
 	_best.text = "BEST  %s" % GameConfig.time_text(e.best_lap) if e.best_lap > 0.0 else ""
+	# Nothing to show yet (an out lap, the grid): no empty box.
+	_times_box.visible = _lap_time.text != "" or _last.text != "" or _best.text != ""
 	# The delta to the best lap, from splits every 50 m.
 	_delta.text = ""
 	if e.lap >= 1 and t > 0.0:
@@ -615,7 +619,8 @@ class Dash:
 		var speed := GameConfig.speed_text(absf(sim.forward_speed()))
 		draw_string(font, Vector2(14, 92 * s), speed, HORIZONTAL_ALIGNMENT_LEFT, -1, int(54 * s), RaceHud.TEXT)
 		draw_string(font, Vector2(16, 116 * s), GameConfig.speed_unit(), HORIZONTAL_ALIGNMENT_LEFT, -1, int(15 * s), RaceHud.DIM)
-		var gear := "N" if sim.gear == 0 else ("R" if sim.reverse else str(sim.gear))
+		# Gear 0 is first.
+		var gear := "R" if sim.reverse else str(sim.gear + 1)
 		draw_string(font, Vector2(w - 82 * s, 98 * s), gear, HORIZONTAL_ALIGNMENT_CENTER, 64 * s, int(64 * s), RaceHud.WARN)
 		# Badges along the bottom.
 		var x := 14.0

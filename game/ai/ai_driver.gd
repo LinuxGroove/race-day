@@ -325,7 +325,9 @@ func _racecraft(dt: float, v: float) -> void:
 		var gap := traffic_gap[k]
 		var their_lat := traffic_lat[k]
 		var dl := their_lat - my_lat
-		if gap > 0.0 and gap < 35.0 and absf(dl) < 2.6:
+		# Side by side, centre to centre, with a little room between.
+		var wide := car.half_width + other.half_width
+		if gap > 0.0 and gap < 35.0 and absf(dl) < wide + 0.64:
 			var closing := v - other.forward_speed()
 			if closing > 0.3 or gap < 12.0:
 				# Pass on the side with more room.
@@ -334,11 +336,11 @@ func _racecraft(dt: float, v: float) -> void:
 				var side := 1.0 if room_left > room_right else -1.0
 				if aggression > 0.6 and absf(their_lat - line_here) < 1.5:
 					side = signf(-track.value_at(track.line_off, car.spot.s + 60.0)) if absf(track.value_at(track.line_off, car.spot.s + 60.0)) > 1.0 else side
-				want = (their_lat + side * 3.3) - line_here
-		elif absf(gap) < 6.5 and absf(dl) < 3.0:
+				want = (their_lat + side * (wide + 1.34)) - line_here
+		elif absf(gap) < 6.5 and absf(dl) < wide + 1.04:
 			# Alongside: hold a car's width of room.
 			var away := -signf(dl) if dl != 0.0 else 1.0
-			want = (their_lat + away * 3.1) - line_here
+			want = (their_lat + away * (wide + 1.14)) - line_here
 		elif gap < 0.0 and gap > -70.0 and blue:
 			want = -signf(line_here) * 3.5 if absf(line_here) > 0.5 else 3.5
 	_target_offset = clampf(want, -half - line_here, half - line_here)
@@ -364,7 +366,7 @@ func _traffic_speed(v: float) -> float:
 		var arrive := clampf(gap / maxf(v - ov, 1.0), 0.0, 2.0)
 		var drift := other.vel.dot(track.normal_at(other.spot.s)) * arrive
 		var rel := absf(wrapf(other.yaw - track.heading_at(other.spot.s), -PI, PI))
-		var reach := 2.6 + (1.6 if rel > 0.5 and rel < PI - 0.5 else 0.0)
+		var reach := car.half_width + other.half_width + 0.64 + (1.6 if rel > 0.5 and rel < PI - 0.5 else 0.0)
 		var path_lat := _lat_at(car.spot.s + gap)
 		var path_dl := _miss(path_lat, their, their + drift)
 		if _miss(car.spot.lat, their, their + drift) > reach and path_dl > reach:

@@ -4,6 +4,10 @@ extends Node3D
 ## a real 5.5 m formula car, with wheels that steer and turn, a helmet in the
 ## cockpit and a rain light. The race moves it from its CarSim each physics
 ## tick, and physics interpolation smooths it between ticks.
+##
+## The wheels sit on the ground under each of them (the road's slope and
+## banking, crests and dips, kerbs), and only the body pitches and rolls on
+## its springs, so the tyres never sink into the road.
 
 ## Each chassis: the model, its scale to real size, and where the driver's
 ## eyes and helmet are (metres, car frame: +z forward, +x left).
@@ -24,10 +28,18 @@ var tcam := Vector3(0, 1.6, -1.0)
 var _front: Array = []
 var _rear: Array = []
 var _body: Node3D
+var _wheels_node: Node3D
+## Where the tyres touch the ground, from the car's middle: half the track
+## (left to right) and the front and rear axles.
+var _half_track := 0.7
+var _axle_f := 1.6
+var _axle_r := 1.6
+## Where the body pitches and rolls about (the wheels' centre height).
+var _pivot := Vector3(0, 0.6, 0)
+var _ground := Track.Spot.new()
 var _rain_light: MeshInstance3D
 var _rain_mat: StandardMaterial3D
 var _blink := 0.0
-var _up := Vector3.UP
 
 
 static func create(p_team: int) -> CarView:
@@ -51,25 +63,53 @@ func _build() -> void:
 	add_child(_body)
 	_body.add_child(model)
 	_body.scale = Vector3.ONE * float(c.scale)
-	# Centre the model on its wheels so the car turns about its middle.
+	# Centre the model on its wheels so the car turns about its middle, with
+	# the bottoms of the tyres on the ground.
 	var wheels := _find_wheels(model)
 	var centre := Vector3.ZERO
+	var bottom := INF
 	for w in wheels:
 		centre += _local_pos(model, w)
+		bottom = minf(bottom, (_local_xf(model, w) * (w as MeshInstance3D).get_aabb()).position.y)
 	if not wheels.is_empty():
 		centre /= wheels.size()
-	model.position -= Vector3(centre.x, 0.0, centre.z)
-	for w in wheels:
-		var p := _local_pos(model, w) - Vector3(centre.x, 0, centre.z)
-		var entry := [w, w.transform]
-		if p.z > 0.0:
-			_front.append(entry)
-		else:
-			_rear.append(entry)
-	tcam = Vector3(0.0, _top(model) * float(c.scale) + 0.35, eye.z - 0.45)
+	else:
+		bottom = 0.0
+	model.position -= Vector3(centre.x, bottom, centre.z)
 	_paint(model, t, c)
+	# The wheels hang off their own node so the body can move on its springs
+	# without them.
+	_wheels_node = Node3D.new()
+	_wheels_node.name = "Wheels"
+	_wheels_node.scale = _body.scale
+	add_child(_wheels_node)
+	var sc := float(c.scale)
+	var fronts := 0.0
+	var rears := 0.0
+	if not wheels.is_empty():
+		_half_track = 0.0
+	for w in wheels:
+		var xf := Transform3D(Basis(), model.position) * _local_xf(model, w)
+		w.get_parent().remove_child(w)
+		w.owner = null
+		_wheels_node.add_child(w)
+		w.transform = xf
+		# The middle of the tyre (a wheel's origin can sit on its inner face).
+		var p := (xf * (w as MeshInstance3D).get_aabb()).get_center() * sc
+		_half_track = maxf(_half_track, absf(p.x))
+		_pivot.y = p.y
+		if p.z > 0.0:
+			_front.append([w, xf])
+			fronts += p.z
+		else:
+			_rear.append([w, xf])
+			rears -= p.z
+	if not _front.is_empty() and not _rear.is_empty():
+		_axle_f = fronts / _front.size()
+		_axle_r = rears / _rear.size()
+	tcam = Vector3(0.0, _top(model) * float(c.scale) + 0.35, eye.z - 0.45)
 	_add_helmet(t)
-	_add_rain_light()
+	_add_rain_light(CarSim.BODIES.get(chassis, CarSim.BODIES.race).z)
 
 
 ## The height of the model's highest point, in its own units.
@@ -152,8 +192,10 @@ func _add_helmet(t: Dictionary) -> void:
 	add_child(helmet)
 
 
-func _add_rain_light() -> void:
+## The rain light, on the back of the car `tail` metres behind its middle.
+func _add_rain_light(tail: float) -> void:
 	_rain_light = MeshInstance3D.new()
+	_rain_light.name = "RainLight"
 	var box := BoxMesh.new()
 	box.size = Vector3(0.18, 0.1, 0.05)
 	_rain_light.mesh = box
@@ -163,7 +205,7 @@ func _add_rain_light() -> void:
 	_rain_mat.emission = Color(1, 0.05, 0.03)
 	_rain_mat.emission_energy_multiplier = 0.0
 	_rain_light.material_override = _rain_mat
-	_rain_light.position = Vector3(0, 0.55, -2.65)
+	_rain_light.position = Vector3(0, 0.55, 0.1 - tail)
 	add_child(_rain_light)
 
 
@@ -177,20 +219,34 @@ func set_cockpit(on: bool) -> void:
 
 ## Moves the car to its simulation state. Call from the physics tick.
 func follow(sim: CarSim, dt: float) -> void:
-	var f := Vector3(sin(sim.yaw), 0.0, cos(sim.yaw))
-	# The road's surface normal from its slope and banking.
-	var t3 := Vector3(sim.spot.tangent.x, 0.0, sim.spot.tangent.y)
-	var n3 := Vector3(sim.spot.normal.x, 0.0, sim.spot.normal.y)
-	var up := (Vector3.UP - t3 * sim.spot.slope - n3 * sim.spot.bank).normalized()
-	_up = _up.lerp(up, clampf(dt * 12.0, 0.0, 1.0)).normalized()
-	var fwd := (f - _up * f.dot(_up)).normalized()
-	var left := _up.cross(fwd).normalized()
-	var b := Basis(left, _up, fwd)
-	# A little pitch and roll from braking, accelerating and cornering.
-	var pitch := clampf(sim.long_g * 0.008, -0.03, 0.03)
-	var roll := clampf(sim.lat_g * 0.006, -0.025, 0.025)
-	b = b * Basis(Vector3.RIGHT, pitch) * Basis(Vector3.FORWARD, roll)
-	global_transform = Transform3D(b, sim.pos)
+	var f2 := sim.forward2()
+	var l2 := sim.left2()
+	# The ground under each tyre: front left, front right, rear left, rear right.
+	var at := Vector2(sim.pos.x, sim.pos.z)
+	var h := [0.0, 0.0, 0.0, 0.0]
+	for k in 4:
+		var p := at + f2 * (_axle_f if k < 2 else -_axle_r) + l2 * (_half_track if k % 2 == 0 else -_half_track)
+		h[k] = sim.track.ground_y(p, sim.spot.idx, _ground) if sim.track else sim.pos.y
+	# The car rests on the plane through them, lifted a touch when the ground
+	# twists so no tyre sinks in.
+	var pitch: float = ((h[0] + h[1]) - (h[2] + h[3])) * 0.5 / (_axle_f + _axle_r)
+	var roll: float = ((h[0] + h[2]) - (h[1] + h[3])) * 0.25 / _half_track
+	var mid: float = (h[0] + h[1] + h[2] + h[3]) * 0.25 + (_axle_r - _axle_f) * 0.5 * pitch
+	var lift := 0.0
+	for k in 4:
+		var z := _axle_f if k < 2 else -_axle_r
+		var x := _half_track if k % 2 == 0 else -_half_track
+		lift = maxf(lift, float(h[k]) - (mid + pitch * z + roll * x))
+	var fwd := Vector3(f2.x, pitch, f2.y).normalized()
+	var up := fwd.cross(Vector3(l2.x, roll, l2.y)).normalized()
+	var b := Basis(up.cross(fwd).normalized(), up, fwd)
+	global_transform = Transform3D(b, Vector3(sim.pos.x, mid + lift, sim.pos.z))
+	# The body settles a little under braking, accelerating and cornering:
+	# nose down on the brakes, leaning out of a corner.
+	var dive := clampf(-sim.long_g * 0.008, -0.03, 0.03)
+	var lean := clampf(sim.lat_g * 0.006, -0.025, 0.025)
+	var tilt := Basis(Vector3.RIGHT, dive) * Basis(Vector3.BACK, lean)
+	_body.transform = Transform3D(tilt.scaled_local(_wheels_node.scale), _pivot - tilt * _pivot)
 	_wheels(sim)
 	_blink += dt
 	var lit := sim.wetness > 0.2 or (sim.limiter_on and sim.spot.in_pit)

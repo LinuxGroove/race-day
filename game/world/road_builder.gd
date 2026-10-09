@@ -7,16 +7,14 @@ extends RefCounted
 ## concrete walls and the decks of bridges. Everything is one vertex-coloured
 ## surface per chunk with the shared ground material.
 ##
-## `bar` holds where the barriers stand on each side, pulled in on the
-## inside of tight corners so the ground never folds over itself; trackside
-## props and the terrain use it too.
+## `bar` holds where the barriers stand on each side (the track's own, where
+## the cars hit them); trackside props and the terrain use it too.
 
 const CHUNK := 100
 const LINE_W := 0.45
 ## A strip of grass beyond the barrier that slopes into the terrain.
 const VERGE := 5.0
 const PAINT_LIFT := 0.035
-const KERB_LIFT := 0.03
 const WALL_H := 1.1
 const WALL_W := 0.6
 const DECK_DEPTH := 1.4
@@ -30,8 +28,7 @@ var bar := [PackedFloat32Array(), PackedFloat32Array()]
 var deck := PackedByteArray()
 var in_tunnel := PackedByteArray()
 var chunk_count := 0
-## How far out the pit lane's outer edge (and the garages) stand. The
-## tiles' pit lane is a little wider than the simulation's.
+## How far out the pit lane's outer edge (and the garages) stand.
 var pit_outer := 0.0
 
 var _bufs: Array = []
@@ -61,37 +58,14 @@ func _edges() -> void:
 	var n := track.n
 	deck.resize(n)
 	in_tunnel.resize(n)
-	for side in 2:
-		bar[side].resize(n)
+	bar = [track.bar[0], track.bar[1]]
 	for i in n:
 		var s := i * track.step
 		var f := track.feature_at(s)
 		deck[i] = 1 if f == "over" or f == "bridge" else 0
 		in_tunnel[i] = 1 if f == "tunnel" else 0
-		for side in 2:
-			bar[side][i] = track.barrier_off(s, side)
 	if not track.pit.is_empty():
 		pit_outer = float(track.pit.outer_lat)
-		if tiles:
-			pit_outer = maxf(pit_outer, ProvingGround.pit_outer())
-			var pside := 0 if float(track.pit.side) > 0.0 else 1
-			for i in n:
-				if track.in_pit_range(i * track.step):
-					bar[pside][i] = maxf(bar[pside][i], pit_outer)
-	# Keep the inside of tight corners from folding: no further in than
-	# most of the radius.
-	for i in n:
-		var kl := 0.0
-		var kr := 0.0
-		for k in range(-8, 9):
-			var c := track.curv[posmod(i + k, n)]
-			kl = maxf(kl, c)
-			kr = maxf(kr, -c)
-		var h := track.half[i]
-		if kl > 0.0001:
-			bar[0][i] = clampf(bar[0][i], h + 0.6, maxf(h + 0.6, 0.85 / kl))
-		if kr > 0.0001:
-			bar[1][i] = clampf(bar[1][i], h + 0.6, maxf(h + 0.6, 0.85 / kr))
 
 
 ## The outer edge of the kerb (or the road) on a side.
@@ -148,7 +122,7 @@ func _segment(i: int) -> void:
 			if ki > hi + 0.01 or kj > hj + 0.01:
 				var stripe := int(floorf(s / 4.0)) % 2 == 0
 				var col := WorldLook.wet(WorldLook.KERB_RED if stripe else WorldLook.KERB_WHITE, wm)
-				b.quad(point(i, sg * hi, KERB_LIFT), point(j, sg * hj, KERB_LIFT), point(j, sg * kj, KERB_LIFT), point(i, sg * ki, KERB_LIFT), col)
+				b.quad(point(i, sg * hi, Track.KERB_LIFT), point(j, sg * hj, Track.KERB_LIFT), point(j, sg * kj, Track.KERB_LIFT), point(i, sg * ki, Track.KERB_LIFT), col)
 			_runoff(b, i, j, side, ki, kj)
 		if deck[i] or deck[j]:
 			_deck_side(b, i, j, side)
