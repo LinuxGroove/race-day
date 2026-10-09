@@ -151,6 +151,9 @@ func _build_rules(body: HBoxContainer) -> void:
 	for row in RULE_ROWS:
 		var key: String = row[0]
 		var options: Array = row[2]
+		if key == "qualifying" and not Session.is_networked():
+			# Knockout qualifying runs offline only.
+			options = options + [["knockout", "Knockout (Q1, Q2, Q3)"]]
 		if key == "circuit":
 			options = []
 			for id in Circuits.ids():

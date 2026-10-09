@@ -165,7 +165,11 @@ func session_started() -> void:
 	match scene.kind:
 		Race.Kind.QUALIFYING:
 			var timed := scene.quali_clock_left() >= 0.0
-			_say("Qualifying. %s" % ("Set your best lap before the flag." if timed else "One flying lap. Make it count."))
+			if scene.quali_part > 0:
+				var keep := ["The slowest five are out after this one.", "Top ten go through to Q3.", "Pole position is on the line."]
+				_say("%s. %s" % [scene.quali_part_name(), keep[scene.quali_part - 1]])
+			else:
+				_say("Qualifying. %s" % ("Set your best lap before the flag." if timed else "One flying lap. Make it count."))
 		Race.Kind.TIME_TRIAL:
 			var m := scene.medals()
 			_say("Time Trial. Gold is %s." % GameConfig.time_text(float(m[0])))
@@ -239,7 +243,11 @@ func _update_top(race: Race, e: Race.Entry) -> void:
 					p = i + 1
 			_pos.text = "P%d" % p if p > 0 else "QUALI"
 			var left := scene.quali_clock_left()
-			_lap.text = ("%s LEFT" % GameConfig.time_text(left, 0)) if left >= 0.0 else ("OUT LAP" if e.lap < 1 else "FLYING LAP")
+			_lap.text = ("%s LEFT" % GameConfig.time_text(left, 0)) if left > 0.0 else ("OUT LAP" if e.lap < 1 else "FLYING LAP")
+			if left == 0.0:
+				_lap.text = "FLAG: FINISH YOUR LAP"
+			if scene.quali_part > 0:
+				_lap.text = scene.quali_part_name() + "  " + _lap.text
 		Race.Kind.TIME_TRIAL:
 			_pos.text = "TIME TRIAL"
 			_lap.text = "LAP %d" % maxi(1, e.lap)

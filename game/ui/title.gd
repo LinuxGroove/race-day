@@ -7,7 +7,7 @@ const LOBBY := "res://game/ui/lobby.tscn"
 const TITLE_COLOR := Color("ffd23f")
 const DIFFICULTY := [[40, "Easy (40)"], [55, "Gentle (55)"], [70, "Medium (70)"], [85, "Hard (85)"], [95, "Expert (95)"], [100, "Legend (100)"], [110, "Beyond (110)"]]
 const DISTANCE := [[3, "3 laps"], [5, "5 laps"], [8, "8 laps"], [12, "12 laps"], [20, "20 laps"]]
-const QUALI := [["none", "No qualifying"], ["one_lap", "One lap"], ["timed", "Timed session"]]
+const QUALI := [["none", "No qualifying"], ["one_lap", "One lap"], ["timed", "Timed session"], ["knockout", "Knockout (Q1, Q2, Q3)"]]
 const SEASON := [[4, "Mini (4 rounds)"], [8, "Short (8 rounds)"], [16, "Full season (16 rounds)"]]
 
 ## Which page to open on arrival (championship, career, time_trial, school).

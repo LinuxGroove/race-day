@@ -28,7 +28,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	for t in ["_test_circuits", "_test_teams", "_test_weather", "_test_ghost", "_test_lap_reference",
 			"_test_session_config", "_test_progress", "_test_snapshot", "_test_safety_car", "_test_net_pack",
-			"_test_school_stretches", "_test_menus", "_test_race_scene", "_test_school_run", "_test_races"]:
+			"_test_school_stretches", "_test_menus", "_test_race_scene", "_test_school_run", "_test_knockout", "_test_races"]:
 		if only != "" and t != only:
 			continue
 		printerr("- ", t)
@@ -328,6 +328,40 @@ func _test_school_run() -> void:
 		frames += 1
 	check(scene.school.done, "the test ends")
 	check(bool(scene.school.result.get("passed", false)), "the autopilot passes it: %s" % scene.school.result)
+	scene.queue_free()
+	await get_tree().process_frame
+	Session.leave()
+
+
+## Knockout qualifying: the player drives Q1 on autopilot (shortened), the
+## slowest five go out each part, and the grid comes from all three.
+func _test_knockout() -> void:
+	Session.start_solo()
+	var settings: Dictionary = Session.settings.duplicate()
+	settings.circuit = Circuits.ids()[0]
+	settings.qualifying = "knockout"
+	settings.difficulty = 40
+	var scene: RaceScene = load("res://game/play/race_scene.tscn").instantiate()
+	scene.config = Session.make_config(Session.local_people(), settings, "quick", 9)
+	add_child(scene)
+	await get_tree().process_frame
+	check(scene.kind == Race.Kind.QUALIFYING and scene.quali_part == 1, "knockout starts with Q1")
+	for part in 3:
+		if scene.kind != Race.Kind.QUALIFYING:
+			break
+		# Skip the clock to the flag: everyone's AI lap is in.
+		scene._quali_clock = scene.quali_length()
+		var frames := 0
+		while not scene.over and frames < 600:
+			await get_tree().physics_frame
+			frames += 1
+		check(scene.over, "Q%d ends at the flag" % (part + 1))
+		var rows: Array = scene.quali_results
+		check(rows.size() == scene.grid_order.size(), "Q%d classifies the whole grid" % (part + 1))
+		scene.continue_weekend()
+		await get_tree().process_frame
+	check(scene.kind == Race.Kind.RACE, "the race follows qualifying")
+	check(scene.grid_order.size() == int(settings.grid), "the grid is full")
 	scene.queue_free()
 	await get_tree().process_frame
 	Session.leave()

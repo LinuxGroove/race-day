@@ -20,6 +20,8 @@ extends Node3D
 signal session_over(kind: int, results: Array)
 
 const QUALI_SESSION := 8.0 * 60.0
+## Knockout qualifying: the three parts' lengths, shortened from the real ones.
+const KNOCKOUT_PARTS := [300.0, 240.0, 200.0]
 
 var config := {}
 var track: Track
@@ -53,6 +55,13 @@ var _sc_blink := 0.0
 var _rng := RandomNumberGenerator.new()
 var _ref_lap := 0.0
 var _quali_clock := 0.0
+## Knockout qualifying: the part being run (1 to 3, 0 for other formats),
+## who is still in, and the rows of those knocked out (best first).
+var quali_part := 0
+var _ko_alive := {}
+var _ko_out: Array = []
+## Timed sessions: each person's lap count when the flag fell.
+var _flag_laps := {}
 var _quali_ai := []
 var _rewind: Array = []
 var _rewind_t := 0.0
@@ -82,6 +91,8 @@ func _ready() -> void:
 		_:
 			var q := str(config.get("qualifying", "one_lap"))
 			sessions = [Race.Kind.QUALIFYING, Race.Kind.RACE] if q != "none" else [Race.Kind.RACE]
+			if q == "knockout":
+				sessions = [Race.Kind.QUALIFYING, Race.Kind.QUALIFYING, Race.Kind.QUALIFYING, Race.Kind.RACE]
 	grid_order = config.get("drivers", []).duplicate(true)
 	if Session.is_networked():
 		net = RaceNet.new()
@@ -135,6 +146,8 @@ func _next_session() -> void:
 
 func _start_session() -> void:
 	over = false
+	if kind == Race.Kind.QUALIFYING and str(config.get("qualifying", "")) == "knockout":
+		quali_part += 1
 	_results_shown = false
 	_rewind.clear()
 	var laps := int(config.get("laps", 5))
@@ -188,7 +201,7 @@ func _drivers_for_session() -> Array:
 		return grid_order
 	var out := []
 	for d in grid_order:
-		if not bool(d.bot):
+		if not bool(d.bot) and (quali_part <= 1 or _ko_alive.has(int(d.id))):
 			out.append(d)
 	return out
 
@@ -418,10 +431,36 @@ func _session_results() -> Array:
 		for q in _quali_ai:
 			rows.append({"id": q.d.id, "name": q.d.name, "code": q.d.code, "team": q.d.team, "nat": q.d.nat, "best": q.time, "bot": true})
 		rows.sort_custom(func(a, b): return (float(a.best) if float(a.best) > 0.0 else INF) < (float(b.best) if float(b.best) > 0.0 else INF))
+		if quali_part > 0:
+			rows = _knockout(rows)
 		for i in rows.size():
 			rows[i]["position"] = i + 1
 		return rows
 	return race.results()
+
+
+## Knockout: the slowest in each of the first two parts are out, and keep
+## their places at the back of the grid.
+func _knockout(rows: Array) -> Array:
+	var n := grid_order.size()
+	var cut := maxi(1, roundi(n / 4.0))
+	var keep := rows.size() if quali_part >= 3 else maxi(1, rows.size() - cut)
+	_ko_alive.clear()
+	for i in rows.size():
+		if i < keep:
+			_ko_alive[int(rows[i].id)] = true
+	var out := rows.slice(keep)
+	var full := rows + _ko_out
+	_ko_out = out + _ko_out
+	# Nobody left to drive the next part: go straight to the race.
+	var people_in := false
+	for d in grid_order:
+		if not bool(d.bot) and _ko_alive.has(int(d.id)):
+			people_in = true
+	if quali_part < 3 and not people_in:
+		while not sessions.is_empty() and sessions[0] == Race.Kind.QUALIFYING:
+			sessions.pop_front()
+	return full
 
 
 func _apply_quali_grid(rows: Array) -> void:
@@ -484,6 +523,8 @@ func restart_session() -> void:
 	if _results:
 		_results.queue_free()
 		_results = null
+	if kind == Race.Kind.QUALIFYING and quali_part > 0:
+		quali_part -= 1
 	_start_session()
 
 
@@ -491,17 +532,47 @@ func restart_session() -> void:
 
 func _prepare_ai_quali() -> void:
 	_quali_clock = 0.0
+	_flag_laps.clear()
 	_ref_lap = LapReference.time(track)
 	_quali_ai.clear()
-	var timed := str(config.get("qualifying", "one_lap")) == "timed"
+	var timed := is_timed_quali()
+	var length := quali_length()
 	for d in grid_order:
 		if not bool(d.bot):
 			continue
+		if quali_part > 1 and not _ko_alive.has(int(d.id)):
+			continue
 		var t := Grid.estimate_lap(_ref_lap, d, _rng, race.wetness)
+		# The track rubbers in: each knockout part is a little quicker.
+		t *= 1.0 - 0.003 * maxi(0, quali_part - 1)
 		# One-lap: the AI's laps go up as the session runs; timed: spread
 		# over the session.
-		var at := _rng.randf_range(20.0, 120.0) if not timed else _rng.randf_range(90.0, QUALI_SESSION - 30.0)
+		var at := _rng.randf_range(20.0, 120.0) if not timed else _rng.randf_range(length * 0.2, length - 25.0)
 		_quali_ai.append({"d": d, "time": t, "at": at, "shown": false})
+
+
+func is_timed_quali() -> bool:
+	return str(config.get("qualifying", "one_lap")) in ["timed", "knockout"]
+
+
+func quali_length() -> float:
+	if quali_part > 0:
+		return KNOCKOUT_PARTS[quali_part - 1]
+	return QUALI_SESSION
+
+
+## "Q1", "Q2" or "Q3" in knockout qualifying, else "".
+func quali_part_name() -> String:
+	return "Q%d" % quali_part if quali_part > 0 else ""
+
+
+## What the results panel's button starts next.
+func next_session_name() -> String:
+	if sessions.is_empty():
+		return ""
+	if sessions[0] == Race.Kind.QUALIFYING:
+		return "Q%d" % (quali_part + 1)
+	return "the race"
 
 
 func _quali_tick(dt: float) -> void:
@@ -514,14 +585,18 @@ func _quali_tick(dt: float) -> void:
 
 
 func _quali_done() -> bool:
-	var timed := str(config.get("qualifying", "one_lap")) == "timed"
-	if timed:
-		if _quali_clock < QUALI_SESSION:
-			# People can finish a lap they've started when the clock runs out.
+	if is_timed_quali():
+		if _quali_clock < quali_length():
 			return false
-		for p in players:
-			if p.entry.lap_start > 0.0 and race.time - p.entry.lap_start < 150.0 and p.entry.sim.speed > 10.0 and p.entry.lap < 50:
-				pass
+		# People can finish a flying lap they started before the flag.
+		for e in race.entries:
+			if e.bot:
+				continue
+			if not _flag_laps.has(e.id):
+				_flag_laps[e.id] = e.lap
+			var on_lap: bool = e.lap >= 1 and e.lap_valid and not e.sim.spot.in_pit and e.sim.speed > 5.0
+			if on_lap and e.lap == int(_flag_laps[e.id]) and race.time - e.lap_start < _ref_lap * 1.4:
+				return false
 		return true
 	# One flying lap each: done when every person has set (or blown) a lap.
 	for e in race.entries:
@@ -533,9 +608,9 @@ func _quali_done() -> bool:
 
 
 func quali_clock_left() -> float:
-	if str(config.get("qualifying", "one_lap")) != "timed":
+	if not is_timed_quali():
 		return -1.0
-	return maxf(0.0, QUALI_SESSION - _quali_clock)
+	return maxf(0.0, quali_length() - _quali_clock)
 
 
 ## Qualifying times posted so far (for the HUD's board): [{code, name, time}].

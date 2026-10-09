@@ -28,7 +28,10 @@ func _ready() -> void:
 		_school_result(col)
 		return
 	var title := str(scene.config.get("title", "")) if scene else ""
-	col.add_child(LGUi.label("%s %s" % [title, "Qualifying" if qualifying else "Race result"], "HeaderMedium"))
+	var what := "Race result"
+	if qualifying:
+		what = "Qualifying" if scene == null or scene.quali_part == 0 else "Qualifying, %s" % scene.quali_part_name()
+	col.add_child(LGUi.label("%s %s" % [title, what], "HeaderMedium"))
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(860, 470)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -76,7 +79,8 @@ func _ready() -> void:
 	col.add_child(buttons)
 	var can_continue := not Session.is_networked() or Session.is_host()
 	if can_continue:
-		var label := "Start the race" if qualifying else "Continue"
+		var next := scene.next_session_name() if scene else ""
+		var label := ("Start %s" % next) if qualifying and next != "" else "Continue"
 		buttons.add_child(LGUi.button(label, _continue, 280))
 	else:
 		buttons.add_child(LGUi.label("Waiting for the host...", "HintLabel"))
