@@ -13,6 +13,9 @@ const CELL := 10.0
 const MARGIN := 700.0
 ## The ground sits this far under the track's edges.
 const LOWER := 0.35
+## Under the Racing Kit's tiles, which have no verge, the ground comes up
+## to just under their grass.
+const TILE_LOWER := 0.1
 ## Outer grid: spacing and reach from the middle of the circuit.
 const FAR_CELL := 250.0
 const FAR_REACH := 9000.0
@@ -193,7 +196,7 @@ func _height_for(p: Vector2, dd: float, nh: float) -> float:
 	var near := smoothstep(6.0, 45.0, dd)
 	if dd > 9e5:
 		near = 1.0
-	return lerpf(nh - LOWER, land, near)
+	return lerpf(nh - (TILE_LOWER if roads.tiles else LOWER), land, near)
 
 
 ## The land's shape far out, matching the outer grid at the detailed grid's edge.

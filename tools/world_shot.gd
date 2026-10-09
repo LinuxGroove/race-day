@@ -9,7 +9,9 @@ extends SceneTree
 ##   --theme=NAME --time=NAME   override the layout's scenery or time of day
 ##   --detail=0|1|2  scenery detail (default 1)
 ##   --shots=a,b     any of grid, corner, chase, bird, pit, feature, landmarks,
-##                   night, rain (default all but landmarks)
+##                   night, rain, top (default all but landmarks and top)
+##                   top: straight down on the corners, with the simulation's
+##                   road edges (yellow) and barriers (magenta) drawn over
 ##   --cars          puts a few cars on the grid for scale
 
 const Demos := preload("res://tools/world_demos.gd")
@@ -178,6 +180,24 @@ func _shot(shot: String) -> void:
 			view.set_lights(5, false)
 			await _save("night_grid")
 			view.set_lights(0, true)
+		"top":
+			var lines := _edge_lines()
+			cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+			cam.size = float(opts.get("top_size", 150.0))
+			for k in track.corners.size():
+				var c: Dictionary = track.corners[k]
+				var mid := track.wrap_s(float(c.start) + track.delta_s(float(c.start), float(c.end)) * 0.5)
+				var p := track.world(mid, 0.0)
+				cam.global_transform = Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), p + Vector3.UP * 300.0)
+				await _save("top_%d" % k)
+			if not track.pit.is_empty():
+				for end: String in ["entry", "exit"]:
+					var ps := track.wrap_s(float(track.pit[end]) + (20.0 if end == "entry" else -20.0))
+					var lat := float(track.pit.side) * 12.0
+					cam.global_transform = Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), track.world(ps, lat) + Vector3.UP * 300.0)
+					await _save("top_pit_" + end)
+			cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+			lines.queue_free()
 		"rain":
 			atmo.set_rain(0.85)
 			var c: Dictionary = track.corners[0]
@@ -186,6 +206,28 @@ func _shot(shot: String) -> void:
 			_look(track.world(track.wrap_s(-60.0), 0.0, 3.0), track.world(40.0, 0.0, 1.5))
 			await _save("rain_grid")
 			atmo.set_rain(0.0)
+
+
+## The simulation's road edges and barriers as lines, for the top shots.
+func _edge_lines() -> MeshInstance3D:
+	var im := ImmediateMesh.new()
+	for side: float in [1.0, -1.0]:
+		for what in 2:
+			im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+			im.surface_set_color(Color.YELLOW if what == 0 else Color.MAGENTA)
+			for i in track.n + 1:
+				var s := (i % track.n) * track.step
+				var lat := track.half[i % track.n] if what == 0 else track.barrier_off(s, 0 if side > 0.0 else 1)
+				im.surface_add_vertex(track.world(s, side * lat, 0.4))
+			im.surface_end()
+	var mi := MeshInstance3D.new()
+	mi.mesh = im
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mi.material_override = mat
+	root.add_child(mi)
+	return mi
 
 
 ## A few cars on the grid, for judging scale.

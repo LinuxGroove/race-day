@@ -30,6 +30,9 @@ var bar := [PackedFloat32Array(), PackedFloat32Array()]
 var deck := PackedByteArray()
 var in_tunnel := PackedByteArray()
 var chunk_count := 0
+## How far out the pit lane's outer edge (and the garages) stand. The
+## tiles' pit lane is a little wider than the simulation's.
+var pit_outer := 0.0
 
 var _bufs: Array = []
 var _terrain: Terrain
@@ -67,6 +70,14 @@ func _edges() -> void:
 		in_tunnel[i] = 1 if f == "tunnel" else 0
 		for side in 2:
 			bar[side][i] = track.barrier_off(s, side)
+	if not track.pit.is_empty():
+		pit_outer = float(track.pit.outer_lat)
+		if tiles:
+			pit_outer = maxf(pit_outer, ProvingGround.pit_outer())
+			var pside := 0 if float(track.pit.side) > 0.0 else 1
+			for i in n:
+				if track.in_pit_range(i * track.step):
+					bar[pside][i] = maxf(bar[pside][i], pit_outer)
 	# Keep the inside of tight corners from folding: no further in than
 	# most of the radius.
 	for i in n:

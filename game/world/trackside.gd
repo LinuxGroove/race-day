@@ -186,7 +186,7 @@ func _pits() -> void:
 	var width := 15.0
 	var sc := width / gsz.x
 	var depth := gsz.z * sc
-	var back := float(pit.outer_lat) + depth * 0.5 + 0.4
+	var back := roads.pit_outer + depth * 0.5 + 0.4
 	var boxes: Array = pit.boxes
 	var first := float(boxes[0]) - width * 3.0
 	var last := float(boxes[boxes.size() - 1]) + width * 3.0
