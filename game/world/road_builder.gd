@@ -320,7 +320,7 @@ func _paint_pit() -> void:
 			paint(c + 3.1, c + 3.4, sg * (bl - 1.7), sg * (bl + 1.7), WorldLook.BOX_LINE)
 			paint(c - 3.4, c - 3.1, sg * (bl - 1.7), sg * (bl + 1.7), WorldLook.BOX_LINE)
 	# Speed limit lines across the lane.
-	for s in [float(pit.limit_in), float(pit.limit_out)]:
+	for s: float in [float(pit.limit_in), float(pit.limit_out)]:
 		for k in 6:
 			var a := wl + 1.0 + k * (ol - wl - 1.5) / 6.0
 			paint(s, s + 0.6, sg * a, sg * (a + (ol - wl - 1.5) / 12.0), WorldLook.LINE)

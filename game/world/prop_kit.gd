@@ -27,9 +27,10 @@ static var _cache := {}
 static var _raw := {}
 
 
-## A model as one mesh, recentred (or as authored with `centre` false).
-static func mesh(path: String, centre := true) -> ArrayMesh:
-	var key := path + ("#c" if centre else "#o")
+## A model as one mesh, recentred (or as authored with `centre` false), its
+## flat colours multiplied by `tint`.
+static func mesh(path: String, centre := true, tint := Color.WHITE) -> ArrayMesh:
+	var key := path + ("#c" if centre else "#o") + ("" if tint == Color.WHITE else tint.to_html())
 	if _cache.has(key):
 		return _cache[key]
 	var parts := _flatten(path)
@@ -50,7 +51,7 @@ static func mesh(path: String, centre := true) -> ArrayMesh:
 				textured[mat] = tb
 			_append_uv(textured[mat], p.arrays, p.xf, xf)
 		else:
-			colour.append_arrays(p.arrays, xf * p.xf, p.col)
+			colour.append_arrays(p.arrays, xf * p.xf, p.col * tint)
 	if not colour.is_empty():
 		colour.commit(m, WorldLook.props())
 	for mat in textured:
@@ -80,13 +81,13 @@ static func _flatten(path: String) -> Array:
 		_raw[path] = out
 		return out
 	var root := scene.instantiate()
-	_walk(root, Transform3D(), out)
+	_walk(root, Transform3D(), out, path.begins_with(V1))
 	root.free()
 	_raw[path] = out
 	return out
 
 
-static func _walk(node: Node, xf: Transform3D, out: Array) -> void:
+static func _walk(node: Node, xf: Transform3D, out: Array, deep: bool) -> void:
 	var t := xf
 	if node is Node3D:
 		t = xf * (node as Node3D).transform
@@ -105,12 +106,12 @@ static func _walk(node: Node, xf: Transform3D, out: Array) -> void:
 				col = bm.albedo_color
 				tex = bm.albedo_texture != null
 				name = bm.resource_name
-			out.append({"arrays": m.surface_get_arrays(si), "xf": t, "mat": mat, "col": deepen(col), "tex": tex, "name": name})
+			out.append({"arrays": m.surface_get_arrays(si), "xf": t, "mat": mat, "col": deepen(col) if deep else Color(col.r, col.g, col.b, 1.0), "tex": tex, "name": name})
 	for ch in node.get_children():
-		_walk(ch, t, out)
+		_walk(ch, t, out, deep)
 
 
-## Flat-coloured Kenney kits store their sRGB colours as linear factors, so
+## The Racing Kit (v1) stores its sRGB colours as linear factors, so
 ## they import paler than drawn; this brings most of the colour back.
 static func deepen(col: Color) -> Color:
 	var d := col.lerp(col.srgb_to_linear(), DEEPEN)

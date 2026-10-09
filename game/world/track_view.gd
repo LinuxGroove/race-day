@@ -64,9 +64,20 @@ static func lamp_material() -> StandardMaterial3D:
 	return WorldLook.glow(Color("fff4d6"), 0.0)
 
 
-## The shared material of lit windows (hotel, towers) at night.
+## The shared material of windows: glass by day, lit at night.
 static func window_material() -> StandardMaterial3D:
-	return WorldLook.glow(Color("ffd98a"), 0.0)
+	if _windows == null:
+		_windows = StandardMaterial3D.new()
+		_windows.albedo_color = Color("7f97bd")
+		_windows.roughness = 0.15
+		_windows.metallic = 0.35
+		_windows.emission_enabled = true
+		_windows.emission = Color("ffd98a")
+		_windows.emission_energy_multiplier = 0.0
+	return _windows
+
+
+static var _windows: StandardMaterial3D
 
 
 ## The ground height anywhere (track, run-off or land).

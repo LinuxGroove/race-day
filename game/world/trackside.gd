@@ -19,7 +19,7 @@ var track: Track
 var roads: RoadBuilder
 var terrain: Terrain
 var detail := 1
-var scatter := PropKit.Scatter.new(320.0)
+var scatter := PropKit.Scatter.new(500.0)
 var root: Node3D
 var rng := RandomNumberGenerator.new()
 ## TV camera positions (on the camera towers), light post lamp positions.
@@ -166,7 +166,7 @@ func _gantry() -> void:
 	# A start/finish arch with the flags further up the straight on longer
 	# straights is busy; one checkered banner tower each side instead.
 	var flag := PropKit.mesh(PropKit.V1 + "flagCheckers.glb")
-	for sg in [1.0, -1.0]:
+	for sg: float in [1.0, -1.0]:
 		scatter.add(flag, at(1.0, sg * (h + 3.2), 0.0, Vector3.ONE * 7.0, false), vis(600.0))
 
 
@@ -305,8 +305,8 @@ func _tower_mesh() -> ArrayMesh:
 	var b := MeshBuf.new()
 	var col := Color("b8bccb")
 	var top := Color("e9605d")
-	for cx in [-1.0, 1.0]:
-		for cz in [-1.0, 1.0]:
+	for cx: float in [-1.0, 1.0]:
+		for cz: float in [-1.0, 1.0]:
 			var base := Vector3(cx * 1.1, 0, cz * 1.1)
 			b.box(base - Vector3(0.12, 0, 0), base + Vector3(0.12, 0, 0), Vector3(0, 0, 1), 0.24, 8.0, col, col, true)
 	b.box(Vector3(-1.5, 8.0, 0), Vector3(1.5, 8.0, 0), Vector3(0, 0, 1), 3.0, 0.3, col, top, true)
