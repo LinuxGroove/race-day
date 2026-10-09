@@ -20,6 +20,9 @@ const SPACE := "res://assets/kenney/space-kit/"
 const TOWN := "res://assets/kenney/fantasy-town/"
 const CARS := "res://assets/kenney/car-kit/"
 
+## How much of the flat kits' lost colour to restore (see `deepen`).
+const DEEPEN := 0.6
+
 static var _cache := {}
 static var _raw := {}
 
@@ -102,9 +105,16 @@ static func _walk(node: Node, xf: Transform3D, out: Array) -> void:
 				col = bm.albedo_color
 				tex = bm.albedo_texture != null
 				name = bm.resource_name
-			out.append({"arrays": m.surface_get_arrays(si), "xf": t, "mat": mat, "col": Color(col.r, col.g, col.b, 1.0), "tex": tex, "name": name})
+			out.append({"arrays": m.surface_get_arrays(si), "xf": t, "mat": mat, "col": deepen(col), "tex": tex, "name": name})
 	for ch in node.get_children():
 		_walk(ch, t, out)
+
+
+## Flat-coloured Kenney kits store their sRGB colours as linear factors, so
+## they import paler than drawn; this brings most of the colour back.
+static func deepen(col: Color) -> Color:
+	var d := col.lerp(col.srgb_to_linear(), DEEPEN)
+	return Color(d.r, d.g, d.b, 1.0)
 
 
 static func _parts_aabb(parts: Array) -> AABB:

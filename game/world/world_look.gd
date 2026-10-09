@@ -8,39 +8,43 @@ extends RefCounted
 ## wet at once (`set_wetness`), and night circuits can light it
 ## (`set_floodlight`).
 
-const ROAD := Color("8d8d8d")
-const LINE := Color("f9f9fb")
-const KERB_RED := Color("e8625e")
-const KERB_WHITE := Color("f9f9fb")
-const GRASS := Color("95c5af")
-const GRASS_DARK := Color("88bba2")
-const GRAVEL := Color("e5ddc9")
-const SAND := Color("ecc98a")
-const TARMAC := Color("a3a9b6")
-const PIT_ROAD := Color("8a8a90")
-const CONCRETE := Color("dcdde3")
-const WALL_TOP := Color("e8625e")
-const DECK := Color("b9bcc6")
-const DRS_LINE := Color("f9f9fb")
+## The Racing Kit's colours after `PropKit.deepen`, as its tiles show them.
+const ROAD := Color("616161")
+const LINE := Color("f5f5f8")
+const KERB_RED := Color("e9605d")
+const KERB_WHITE := Color("f5f5f8")
+const GRASS := Color("6aa488")
+const GRASS_DARK := Color("609c7f")
+const GRAVEL := Color("d3c7aa")
+const SAND := Color("e2b874")
+const TARMAC := Color("7d828e")
+const PIT_ROAD := Color("66666c")
+const CONCRETE := Color("d6d7de")
+const WALL_TOP := Color("e9605d")
+const DECK := Color("9a9eaa")
+const DRS_LINE := Color("f5f5f8")
 const BOX_LINE := Color("f5d24a")
 const WATER := Color("5fa3c9")
+const ROCK := Color("9a958b")
+const RED_ROCK := Color("b8683f")
+const SHORE := Color("d8cba5")
 
 ## Terrain colours per theme: [near the track, further out].
 const TERRAIN := {
-	"parkland": [Color("8fc49a"), Color("7fb68b")],
-	"harbour": [Color("9ccaa8"), Color("c9c3b3")],
-	"forest": [Color("7fb488"), Color("6fa57a")],
-	"airfield": [Color("a8c98e"), Color("9cbf84")],
-	"desert": [Color("e6c58e"), Color("dcb57c")],
-	"city": [Color("a9c79f"), Color("b6b8bf")],
-	"mountain": [Color("98bf8c"), Color("a7a394")],
-	"lake": [Color("8fc49a"), Color("80b88d")],
-	"countryside": [Color("a3cc8b"), Color("b8cf7e")],
-	"oval": [Color("95c49a"), Color("8cba90")],
-	"cliff": [Color("9fc98f"), Color("b5b49b")],
-	"hills": [Color("8cc08f"), Color("79b083")],
-	"canyon": [Color("d99a6c"), Color("c98458")],
-	"proving": [Color("95c5af"), Color("8bbca5")],
+	"parkland": [Color("6aa883"), Color("5f9d76")],
+	"harbour": [Color("6fa888"), Color("a9a596")],
+	"forest": [Color("5f9c71"), Color("518f64")],
+	"airfield": [Color("86ad6c"), Color("7ba364")],
+	"desert": [Color("dcb57c"), Color("d1a568")],
+	"city": [Color("72a483"), Color("9c9ea8")],
+	"mountain": [Color("6f9f72"), Color("8d8a7c")],
+	"lake": [Color("68a681"), Color("5c9b75")],
+	"countryside": [Color("80ad6a"), Color("9cb65e")],
+	"oval": [Color("6aa883"), Color("63a07b")],
+	"cliff": [Color("78a873"), Color("9a9884")],
+	"hills": [Color("66a477"), Color("5a986a")],
+	"canyon": [Color("d08d5f"), Color("c07a4c")],
+	"proving": [Color("6aa488"), Color("639d80")],
 }
 
 const GROUND_SHADER := """
