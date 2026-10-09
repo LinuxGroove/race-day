@@ -31,6 +31,9 @@ var edge := {"kind": Runoff.GRASS, "width": 14.0, "barrier": Barrier.ARMCO}
 var corner_outside := {"kind": Runoff.GRAVEL, "width": 26.0, "barrier": Barrier.TYRES}
 ## Kerbs on corners tighter than this radius.
 var kerb_radius := 320.0
+## How many full turns the corners add up to: 1 for an ordinary lap, 0 for
+## a figure of eight (one loop each way, with a crossover).
+var winding := 1
 ## The pieces: {"kind": "line"/"arc", "length", "angle" (radians, + left),
 ## "radius", "climb", "bank" (degrees, + raises the outside), "width",
 ## "left", "right" (edge overrides), "feature" (see FEATURES)}.
@@ -143,3 +146,94 @@ func desert() -> TrackPlan:
 	edge = {"kind": Runoff.TARMAC, "width": 14.0, "barrier": Barrier.FENCE}
 	corner_outside = {"kind": Runoff.TARMAC, "width": 28.0, "barrier": Barrier.TYRES}
 	return self
+
+
+## A copy of this plan: its settings, pieces and landmarks.
+func copy() -> TrackPlan:
+	var p := TrackPlan.new()
+	p.width = width
+	p.start_at = start_at
+	p.pit_side = pit_side
+	p.pit_before = pit_before
+	p.pit_after = pit_after
+	p.edge = edge.duplicate(true)
+	p.corner_outside = corner_outside.duplicate(true)
+	p.kerb_radius = kerb_radius
+	p.winding = winding
+	p.pieces = pieces.duplicate(true)
+	p.landmarks = landmarks.duplicate(true)
+	return p
+
+
+## A copy whose AUTO straights have the lengths that close the lap, and
+## whose corners make exactly a full turn: the plan as Track lays it.
+func resolved() -> TrackPlan:
+	var p := copy()
+	p.pieces = Track.solve_pieces(self)
+	return p
+
+
+## The same circuit driven the other way round. The start line, the pit
+## lane and every landmark stay where they are on the ground: the pit lane
+## and the landmarks change sides relative to the cars, the pit entry and
+## exit swap ends, and climbs become drops.
+func reversed() -> TrackPlan:
+	var base := resolved()
+	var p := base.copy()
+	var count := base.pieces.size()
+	p.pieces = []
+	for j in count:
+		p.pieces.append(_reverse_piece(base.pieces[(count - j) % count]))
+	p.start_at = float(base.pieces[0].length) - base.start_at
+	p.pit_side = -base.pit_side
+	p.pit_before = base.pit_after
+	p.pit_after = base.pit_before
+	p.landmarks = []
+	for l in base.landmarks:
+		var m: Dictionary = l.duplicate(true)
+		# A landmark sits at the end of `piece` pieces: the same spot on the
+		# ground is the end of this many reversed pieces.
+		m["piece"] = (count - int(l.piece)) % count + 1
+		m["side"] = -int(l.get("side", 1))
+		p.landmarks.append(m)
+	return p
+
+
+static func _reverse_piece(pc: Dictionary) -> Dictionary:
+	var r: Dictionary = pc.duplicate(true)
+	r["angle"] = -float(pc.angle)
+	if pc.has("climb"):
+		r["climb"] = -float(pc.climb)
+	r.erase("left")
+	r.erase("right")
+	if pc.has("right"):
+		r["left"] = pc.right.duplicate(true)
+	if pc.has("left"):
+		r["right"] = pc.left.duplicate(true)
+	return r
+
+
+## A shorter layout: pieces `from` up to (not including) `to` are replaced
+## by the link road in `link`, which needs two AUTO straights of its own
+## (and whose corners make up the turn the cut pieces made). The rest of
+## the lap lies exactly where it did, with its landmarks; the link's own
+## landmarks come along too.
+func shortcut(from: int, to: int, link: TrackPlan) -> TrackPlan:
+	var base := resolved()
+	var p := base.copy()
+	p.pieces = base.pieces.slice(0, from) + link.pieces.duplicate(true) + base.pieces.slice(to)
+	var shift := link.pieces.size() - (to - from)
+	p.landmarks = []
+	for l in base.landmarks:
+		var k := int(l.piece)
+		if k > from and k < to:
+			continue
+		var m: Dictionary = l.duplicate(true)
+		if k >= to:
+			m["piece"] = k + shift
+		p.landmarks.append(m)
+	for l in link.landmarks:
+		var m: Dictionary = l.duplicate(true)
+		m["piece"] = int(l.piece) + from
+		p.landmarks.append(m)
+	return p

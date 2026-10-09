@@ -90,6 +90,17 @@ static func build(p_plan: TrackPlan, track_id := "", track_name := "") -> Track:
 	return t
 
 
+## A plan's pieces as the build lays them: corners closed to a full turn
+## and AUTO straights given their lengths. TrackPlan.resolved() uses this.
+static func solve_pieces(p_plan: TrackPlan) -> Array:
+	var t := Track.new()
+	t.plan = p_plan
+	var pieces: Array = p_plan.pieces.duplicate(true)
+	t._close_heading(pieces)
+	t._solve_autos(pieces)
+	return pieces
+
+
 # --- Queries -------------------------------------------------------------
 
 ## The sample index for distance s along the lap.
@@ -394,10 +405,10 @@ func _close_heading(pieces: Array) -> void:
 	for p in pieces:
 		total += float(p.angle)
 		arcs += absf(float(p.angle))
-	var target := TAU if total > 0.0 else -TAU
+	var target := (TAU if total > 0.0 else -TAU) * plan.winding
 	var err := target - total
 	if absf(err) > deg_to_rad(3.0):
-		push_error("Track %s: corners turn %.1f degrees, not 360" % [id, rad_to_deg(total)])
+		push_error("Track %s: corners turn %.1f degrees, not %d" % [id, rad_to_deg(total), 360 * plan.winding])
 	if arcs <= 0.0:
 		return
 	for p in pieces:
