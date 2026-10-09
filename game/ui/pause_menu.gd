@@ -8,6 +8,18 @@ const GEARS := [["auto", "Automatic"], ["manual", "Manual"]]
 const SOFTNESS := [[0.6, "Very soft"], [0.8, "Soft"], [1.0, "Normal"], [1.3, "Tight"]]
 const HEAD := [[0.0, "Still"], [0.3, "A little"], [0.7, "More"], [1.0, "Full"]]
 const FOVS := [[60.0, "60"], [65.0, "65"], [70.0, "70"], [75.0, "75"], [80.0, "80"], [90.0, "90"]]
+const PRESET_NAMES := [["low", "Low downforce"], ["balanced", "Balanced"], ["high", "High downforce"], ["custom", "Your own"]]
+## The four setup sliders: key, name, [[value, label], ...], what it does.
+const SETUP_ROWS := [
+	["wing", "Wing level", [[0.1, "1 (least)"], [0.3, "2"], [0.5, "3"], [0.7, "4"], [0.9, "5 (most)"]],
+		"More wing grips in the corners; less is faster on the straights."],
+	["gear", "Gearing", [[0.15, "Long"], [0.35, "Longer"], [0.5, "Middle"], [0.65, "Shorter"], [0.85, "Short"]],
+		"Short gears pull hard out of slow corners; long gears reach a higher top speed."],
+	["balance", "Brake balance", [[0.54, "54% front"], [0.56, "56% front"], [0.58, "58% front"], [0.6, "60% front"], [0.62, "62% front"]],
+		"More to the front is stable under braking but locks the fronts sooner."],
+	["stiffness", "Suspension", [[0.1, "Soft"], [0.3, "Softer"], [0.5, "Middle"], [0.7, "Stiffer"], [0.9, "Stiff"]],
+		"Stiff is sharp on smooth roads; soft rides the kerbs and bumps."],
+]
 
 var scene: RaceScene
 var _col: VBoxContainer
@@ -45,6 +57,8 @@ func _main() -> void:
 	_col.add_child(LGUi.button("Resume", close))
 	if not Session.is_networked():
 		_col.add_child(LGUi.button("Restart session", _restart))
+	if scene.kind != Race.Kind.SCHOOL:
+		_col.add_child(LGUi.button("Car setup", _setup))
 	_col.add_child(LGUi.button("Assists", _assists))
 	_col.add_child(LGUi.button("Camera and comfort", _camera))
 	_col.add_child(LGUi.button("Sound and screen", _sound))
@@ -102,6 +116,48 @@ func _sound() -> void:
 	_col.add_child(SettingsPanel.new())
 	_col.add_child(LGUi.button("Back", _main))
 	LGUi.focus_first(_col)
+
+
+func _setup() -> void:
+	_clear()
+	_col.add_child(LGUi.label("Car setup: %s" % str(scene.info.get("name", "")), "HeaderMedium"))
+	var setup := Progress.setup_for(scene.track.id)
+	var preset := "custom"
+	for k in CarSpec.PRESETS:
+		if CarSpec.PRESETS[k].hash() == setup.hash():
+			preset = k
+	_col.add_child(LGCycler.make("Start from", PRESET_NAMES, preset, _on_preset, 560))
+	for row in SETUP_ROWS:
+		var c := LGCycler.make(row[1], row[2], _nearest(row[2], float(setup.get(row[0], 0.5))), _on_setup.bind(str(row[0])), 560)
+		c.tooltip_text = row[3]
+		_col.add_child(c)
+	var note := LGUi.label("The balanced setup is always quick. Change one thing at a time and try a lap." if scene.can_change_setup()
+		else "The setup is locked during the race. Changes apply from the next session.", "HintLabel")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.x = 560
+	_col.add_child(note)
+	_col.add_child(LGUi.button("Back", _main))
+	LGUi.focus_first(_col)
+
+
+static func _nearest(options: Array, v: float) -> float:
+	var best: float = options[0][0]
+	for o in options:
+		if absf(float(o[0]) - v) < absf(best - v):
+			best = o[0]
+	return best
+
+
+func _on_preset(key: Variant) -> void:
+	if CarSpec.PRESETS.has(str(key)):
+		scene.apply_setup(CarSpec.PRESETS[str(key)])
+		_setup.call_deferred()
+
+
+func _on_setup(value: Variant, key: String) -> void:
+	var setup := Progress.setup_for(scene.track.id)
+	setup[key] = value
+	scene.apply_setup(setup)
 
 
 func _restart() -> void:

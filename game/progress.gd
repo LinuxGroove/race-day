@@ -277,6 +277,19 @@ func end_career() -> void:
 	save()
 
 
+# --- Car setup ----------------------------------------------------------
+
+## The player's setup for a layout (CarSpec.apply_setup's keys); balanced
+## until changed.
+func setup_for(layout: String) -> Dictionary:
+	return _cfg.get_value("setup", layout, CarSpec.PRESETS.balanced).duplicate()
+
+
+func save_setup(layout: String, setup: Dictionary) -> void:
+	_cfg.set_value("setup", layout, setup.duplicate())
+	save()
+
+
 # --- Racing School ------------------------------------------------------
 
 func school_medal(test: String) -> int:

@@ -167,6 +167,10 @@ func _start_session() -> void:
 		var opts := {"code": d.code, "nat": d.nat, "number": d.number, "aggression": d.aggression, "consistency": d.consistency}
 		if kind == Race.Kind.TIME_TRIAL or kind == Race.Kind.SCHOOL:
 			opts["spec_team"] = LapReference.TEAM
+		if not bool(d.bot):
+			opts["upgrades"] = config.get("upgrades", {})
+			if int(d.peer) == Session.local_id() and kind != Race.Kind.SCHOOL:
+				opts["setup"] = Progress.setup_for(track.id)
 		var pace := float(d.pace) if bool(d.bot) else -1.0
 		var e := race.add_car(int(d.id), str(d.name), int(d.team), i, pace, opts)
 		e.peer = int(d.peer)
@@ -692,6 +696,24 @@ func _time_trial_lap(ev: Dictionary) -> void:
 
 func medals() -> Array:
 	return LapReference.medals(track)
+
+
+# --- Car setup ----------------------------------------------------------
+
+## Whether the setup can change now: not once the race is under way.
+func can_change_setup() -> bool:
+	return race != null and kind != Race.Kind.SCHOOL and (kind != Race.Kind.RACE or race.phase == Race.Phase.GRID)
+
+
+## Saves a new setup for this layout and puts it on this device's cars.
+func apply_setup(setup: Dictionary) -> void:
+	Progress.save_setup(track.id, setup)
+	if not can_change_setup():
+		return
+	for p in players:
+		var e: Race.Entry = p.entry
+		var team := LapReference.TEAM if kind == Race.Kind.TIME_TRIAL else e.team
+		e.sim.spec = Teams.spec_for(team, config.get("upgrades", {})).apply_setup(setup)
 
 
 # --- The safety car ---------------------------------------------------------
