@@ -421,11 +421,18 @@ func _far_mesh(col: Color, rock: Color) -> ArrayMesh:
 	hs.resize((n + 1) * (n + 1))
 	var lo := origin + Vector2.ONE * CELL * 2.0
 	var hi := origin + Vector2(nx - 3, nz - 3) * CELL
+	# Well inside the detailed grid the outer land drops right away, so it
+	# can't show through dug water between its widely spaced points.
+	var deep := base_height - 60.0
+	for w in waters:
+		deep = minf(deep, float(w.level) - 20.0)
 	for z in n + 1:
 		for x in n + 1:
 			var p := o + Vector2(x, z) * FAR_CELL
 			var y := far_height(p)
-			if p.x > lo.x and p.y > lo.y and p.x < hi.x and p.y < hi.y:
+			if p.x > lo.x + FAR_CELL and p.y > lo.y + FAR_CELL and p.x < hi.x - FAR_CELL and p.y < hi.y - FAR_CELL:
+				y = minf(y, deep)
+			elif p.x > lo.x and p.y > lo.y and p.x < hi.x and p.y < hi.y:
 				y = minf(y, height(clampf(p.x, origin.x, hi.x), clampf(p.y, origin.y, hi.y)) - 3.0)
 			hs[z * (n + 1) + x] = y
 	var b := MeshBuf.new()

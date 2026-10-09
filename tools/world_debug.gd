@@ -1,12 +1,32 @@
 extends SceneTree
 ## Development aid: prints terrain heights across the track at a few places.
 ##   godot --headless --path . -s tools/world_debug.gd -- gp
+## or builds every circuit's view (or a comma list of ids) and prints what
+## each made and how long it took:
+##   godot --headless --path . -s tools/world_debug.gd -- circuits [ids]
 
 const Demos := preload("res://tools/world_demos.gd")
 
 
 func _init() -> void:
 	var id: String = OS.get_cmdline_user_args()[0] if OS.get_cmdline_user_args().size() > 0 else "gp"
+	if id == "circuits":
+		var ids := Circuits.ids()
+		if OS.get_cmdline_user_args().size() > 1:
+			ids = OS.get_cmdline_user_args()[1].split(",")
+		for c in ids:
+			var info := Circuits.info(c)
+			var tr := Circuits.track(c)
+			var v := TrackView.create(tr, info, 1)
+			var a := Atmosphere.create(info, v)
+			var kinds := {}
+			for l in tr.landmarks:
+				kinds[str(l.kind)] = true
+			print("%-26s %5.0f m %-12s %-13s %4d ms  %s  features %s  landmarks %s" % [c, tr.length, info.theme, info.time, v.stats.total_ms, v.count(), tr.features.map(_kind), kinds.keys()])
+			a.free()
+			v.free()
+		quit()
+		return
 	if id == "all":
 		for d in Demos.IDS:
 			var tr := Track.build(Demos.plan(d), d, d)
@@ -28,3 +48,7 @@ func _init() -> void:
 		print(line)
 	v.free()
 	quit()
+
+
+func _kind(f: Dictionary) -> String:
+	return str(f.kind)

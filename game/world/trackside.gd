@@ -239,7 +239,7 @@ func _pits() -> void:
 
 ## A row of grandstands from s0 to s1 facing the track, `gap` metres behind
 ## the barrier on `side` (1 left, -1 right).
-func grandstand_row(s0: float, s1: float, side: float, dist := 0.0, covered := true) -> void:
+func grandstand_row(s0: float, s1: float, side: float, dist := 0.0, covered := true, tall := 1.0) -> void:
 	var m := PropKit.mesh(PropKit.V1 + ("grandStandCovered.glb" if covered else "grandStand.glb"))
 	var sz := m.get_aabb().size
 	var width := 16.0
@@ -250,7 +250,7 @@ func grandstand_row(s0: float, s1: float, side: float, dist := 0.0, covered := t
 		var si := track.index_at(track.wrap_s(s))
 		var b: float = roads.bar[0 if side > 0.0 else 1][si]
 		var lat := side * maxf(dist, b + depth * 0.5 + 6.0)
-		var xf := at(s, lat, face(side), Vector3.ONE * sc)
+		var xf := at(s, lat, face(side), Vector3(sc, sc * tall, sc * tall))
 		xf.origin.y = ground_under(xf.origin, depth * 0.5) - 0.3
 		# Stands on bends follow the outside of the bend.
 		scatter.add(m, xf, 0.0, true)
@@ -268,7 +268,12 @@ func _landmark_grandstands() -> void:
 		if str(l.kind) != "grandstand":
 			continue
 		var size := float(l.size)
-		grandstand_row(float(l.s) - size * 0.5, float(l.s) + size * 0.5, float(l.side), float(l.distance), int(float(l.s)) % 2 == 0)
+		# "covered" picks the roof (otherwise every other stand has one); a
+		# "stadium" section has big stands close in.
+		var covered := bool(l.get("covered", int(float(l.s)) % 2 == 0))
+		var stadium := bool(l.get("stadium", false))
+		var dist := float(l.distance) * (0.6 if stadium else 1.0)
+		grandstand_row(float(l.s) - size * 0.5, float(l.s) + size * 0.5, float(l.side), dist, covered, 1.5 if stadium else 1.0)
 
 
 # --- Camera towers -------------------------------------------------------

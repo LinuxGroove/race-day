@@ -17,7 +17,7 @@ var terrain: Terrain
 var roads: RoadBuilder
 var detail := 1
 var rng := RandomNumberGenerator.new()
-var scatter := PropKit.Scatter.new(700.0)
+var scatter := PropKit.Scatter.new(900.0)
 var root: Node3D
 var _density := FastNoiseLite.new()
 
@@ -35,8 +35,34 @@ func _init(v: TrackView) -> void:
 
 ## The centre of a landmark on the ground plane.
 func landmark_point(l: Dictionary, extra := 0.0) -> Vector2:
-	var p := track.world(float(l.s), float(l.side) * (float(l.distance) + extra))
+	var p := track.world(landmark_s(l), float(l.side) * (float(l.distance) + extra))
 	return Vector2(p.x, p.z)
+
+
+## Where along the lap a landmark sits. Water the track crosses ("across")
+## sits under the middle of the bridge it's marked by, if there is one.
+func landmark_s(l: Dictionary) -> float:
+	var s := float(l.s)
+	if not bool(l.get("across", false)):
+		return s
+	for f in track.features:
+		if str(f.kind) != "bridge" and str(f.kind) != "over":
+			continue
+		var from := float(f.from)
+		var to := float(f.to)
+		var span := fposmod(to - from, track.length)
+		if fposmod(s - from + 40.0, track.length) <= span + 80.0:
+			return track.wrap_s(from + span * 0.5)
+	return s
+
+
+## Whether the track crosses this water (a river or a marina's channel).
+func crosses(l: Dictionary) -> bool:
+	if l.has("across"):
+		return bool(l.across)
+	if bool(l.get("along", false)):
+		return false
+	return str(l.kind) == "river" and float(l.distance) < float(l.get("size", 80.0)) * 0.5
 
 
 ## The lowest track height within `r` metres of a point.
@@ -60,14 +86,18 @@ func shape_land() -> void:
 		var size := float(l.get("size", 80.0))
 		var c := landmark_point(l)
 		var side := float(l.side)
-		var i := track.index_at(float(l.s))
+		var i := track.index_at(landmark_s(l))
 		var nrm := track.normal[i] * side
 		var tan := track.tangent[i]
 		match kind:
 			"lake", "marina":
-				terrain.waters.append({"kind": "lake", "centre": c, "radius": size * 0.5, "level": track_low(c, size * 0.5 + 120.0) - 1.6})
+				if crosses(l):
+					# A harbour channel under the bridge, open at both ends.
+					terrain.waters.append({"kind": "river", "centre": c, "dir": nrm, "width": clampf(size * 0.7, 40.0, 140.0), "length": size * 4.0, "level": track_low(c, 150.0) - 4.0})
+				else:
+					terrain.waters.append({"kind": "lake", "centre": c, "radius": size * 0.5, "level": track_low(c, size * 0.5 + 120.0) - 1.6})
 			"river":
-				var crossing := float(l.distance) < size * 0.5
+				var crossing := crosses(l)
 				var dir := nrm if crossing else tan
 				var w := clampf(size * 0.35, 30.0, 90.0)
 				terrain.waters.append({"kind": "river", "centre": c, "dir": dir, "width": w, "length": 4000.0 if crossing else size * 2.5, "level": track_low(c, 150.0) - 4.0})
@@ -385,6 +415,9 @@ func _boats(c: Vector2, radius: float, models: Array, count: int, level: float, 
 		var p := c + Vector2.from_angle(rng.randf() * TAU) * sqrt(rng.randf()) * radius
 		if not terrain.is_water(p) or ground(p) > level - 1.5:
 			continue
+		# Not under a bridge, where a tall boat would poke through the deck.
+		if not track.samples_near(p, 30.0).is_empty():
+			continue
 		var m: Mesh = models[rng.randi() % models.size()]
 		scatter.add(m, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * scale), Vector3(p.x, level - 0.3, p.y)), vis(1400.0), true)
 		placed += 1
@@ -409,20 +442,25 @@ func _landmark(l: Dictionary) -> void:
 	var size := float(l.get("size", 80.0))
 	var c := landmark_point(l)
 	var side := float(l.side)
-	var i := track.index_at(float(l.s))
+	var i := track.index_at(landmark_s(l))
 	var nrm := track.normal[i] * side
 	var face := atan2(-nrm.x, -nrm.y)
 	var wk := WATERCRAFT_SCALE
 	match kind:
 		"lake":
 			var w := _water_of(c)
-			_boats(c, size * 0.45, _models(PropKit.WATERCRAFT, ["boat-row-small", "boat-row-large"]), 6 + detail * 3, float(w.get("level", 0.0)), wk)
+			var rowing := bool(l.get("rowing", false))
+			_boats(c, size * 0.45, _models(PropKit.WATERCRAFT, ["boat-row-small", "boat-row-large"]), (10 if rowing else 6) + detail * 3, float(w.get("level", 0.0)), wk)
 			_ring_trees(c, size * 0.5 + 12.0, 26 + detail * 12)
 		"marina":
-			var w := _water_of(c)
+			var harbour := c
+			if crosses(l):
+				# Moorings up the channel, clear of the bridge.
+				harbour = c + nrm * size * 1.1
+			var w := _water_of(harbour)
 			var lvl := float(w.get("level", 0.0))
-			_jetties(c, size, lvl, nrm)
-			_boats(c, size * 0.4, _models(PropKit.WATERCRAFT, ["boat-speed-a", "boat-speed-d", "boat-sail-a", "boat-sail-b", "boat-speed-j"]), 8 + detail * 6, lvl, wk)
+			_jetties(harbour, size, lvl, nrm)
+			_boats(harbour, size * 0.4, _models(PropKit.WATERCRAFT, ["boat-speed-a", "boat-speed-d", "boat-sail-a", "boat-sail-b", "boat-speed-j"]), 8 + detail * 6, lvl, wk)
 		"sea":
 			var w := _water_of(c)
 			var lvl := float(w.get("level", 0.0))
@@ -433,15 +471,27 @@ func _landmark(l: Dictionary) -> void:
 			var w := _water_of(c)
 			_boats(c, 140.0, _models(PropKit.WATERCRAFT, ["boat-row-small", "boat-tug-c"]), 2 + detail, float(w.get("level", 0.0)), wk)
 		"buildings":
-			_block_of(c, size, face, _models(PropKit.CITY, ["building-a", "building-b", "building-f", "building-g", "building-i", "building-l", "building-skyscraper-a", "building-skyscraper-c"]), 12.0, 30.0)
+			if bool(l.get("towers", false)):
+				_block_of(c, size, face, _models(PropKit.CITY, ["building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-d", "building-skyscraper-e"]), 14.0, 38.0)
+			else:
+				_block_of(c, size, face, _models(PropKit.CITY, ["building-a", "building-b", "building-f", "building-g", "building-i", "building-l", "building-skyscraper-a", "building-skyscraper-c"]), 12.0, 30.0)
 		"village":
 			_block_of(c, size, face, _models(PropKit.SUBURB, ["building-type-a", "building-type-b", "building-type-c", "building-type-d", "building-type-f", "building-type-k", "building-type-n", "building-type-t"]), 8.0, 26.0)
 			_ring_trees(c, size * 0.5, 14 + detail * 6)
 		"hangars":
 			_row(c, size, face, nrm, _models(PropKit.SPACE, ["hangar_largeA", "hangar_roundA", "hangar_largeB"]), 15.0)
+			if bool(l.get("radar", false)):
+				var radar := PropKit.mesh(PropKit.V1 + "radarEquipment.glb")
+				var dish := PropKit.mesh(PropKit.SPACE + "satelliteDish_large.glb")
+				var acr := Vector2(nrm.y, -nrm.x)
+				for k in 3:
+					var p := c + acr * (size * 0.5 + 40.0 + k * 35.0) + nrm * 20.0
+					if is_free(p, 12.0):
+						put(radar if k != 1 else dish, p, face, 14.0 if k != 1 else 22.0, vis(1500.0))
+						_claim(p, 12.0)
 			_runway(c + nrm * 110.0, face + PI * 0.5, maxf(size * 2.5, 600.0))
 		"forest":
-			_forest(c, size)
+			_forest(c, size, str(l.get("trees", "")))
 		"cliff":
 			_rocks(c, size, 26, Vector2(20.0, 42.0), Color.WHITE if view.theme() != "canyon" else Color(1.25, 0.72, 0.52))
 		"rock_wall":
@@ -481,8 +531,14 @@ func _ring_trees(c: Vector2, r: float, count: int) -> void:
 			put(leafy[rng.randi() % leafy.size()], p, rng.randf() * TAU, rng.randf_range(9.0, 13.0), vis(1100.0), 0.3)
 
 
-func _forest(c: Vector2, size: float) -> void:
-	var pines := _models(PropKit.NATURE, ["tree_pineTallA", "tree_pineTallB", "tree_pineRoundD", "tree_pineTallD"], TREE_TINT)
+## A wood of `kind` trees ("pine", "leafy", or the theme's usual).
+func _forest(c: Vector2, size: float, kind := "") -> void:
+	if kind == "":
+		kind = "leafy" if view.theme() in ["parkland", "lake", "countryside", "oval"] else "pine"
+	var names := ["tree_pineTallA", "tree_pineTallB", "tree_pineRoundD", "tree_pineTallD"]
+	if kind == "leafy":
+		names = ["tree_default", "tree_fat", "tree_simple", "tree_default_dark"]
+	var pines := _models(PropKit.NATURE, names, TREE_TINT)
 	var count := int(size * size / 900.0 * (0.6 + detail * 0.4))
 	for k in mini(count, 700):
 		var p := c + Vector2.from_angle(rng.randf() * TAU) * sqrt(rng.randf()) * size * 0.5

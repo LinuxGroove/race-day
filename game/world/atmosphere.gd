@@ -64,15 +64,19 @@ var _drops: Array = []
 var _pool: Array = []
 
 
-## Makes the atmosphere for a circuit (`info` from Circuits.info). `p_view`
-## (optional) gives the light posts for night races.
-static func create(info: Dictionary, p_view: TrackView = null) -> Atmosphere:
+## Makes the atmosphere for a circuit: `info` from Circuits.info (or just
+## its time of day, "day", "dusk", "night" or "dusk_to_night"), then the
+## TrackView (for the light posts at night) or how wet it is (0 to 1).
+static func create(info: Variant, view_or_wet: Variant = null) -> Atmosphere:
 	var a := Atmosphere.new()
 	a.name = "Atmosphere"
-	a.view = p_view
-	a.time_of_day = str(info.get("time", "day"))
+	if view_or_wet is TrackView:
+		a.view = view_or_wet
+	a.time_of_day = str((info as Dictionary).get("time", "day")) if info is Dictionary else str(info)
 	a._make()
 	a.set_time(0.0)
+	if view_or_wet is float or view_or_wet is int:
+		a.set_rain(float(view_or_wet))
 	return a
 
 
@@ -231,13 +235,31 @@ func _make_rain() -> GPUParticles3D:
 	mat.albedo_color = Color(0.85, 0.9, 1.0, 0.35)
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 	mat.billboard_keep_scale = true
+	# Drops right in front of the lens would smear across the screen.
+	mat.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	mat.distance_fade_min_distance = 1.5
+	mat.distance_fade_max_distance = 5.0
 	q.material = mat
 	p.draw_pass_1 = q
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return p
 
 
+func _ready() -> void:
+	# Made with just a time of day: the circuit's view is usually a sibling.
+	if view == null and get_parent():
+		for ch in get_parent().get_children():
+			if ch is TrackView:
+				view = ch
+				break
+
+
 func _process(_delta: float) -> void:
+	# A scene that never calls follow() still gets rain round its camera.
+	if _cams.is_empty():
+		var cam := get_viewport().get_camera_3d() if get_viewport() else null
+		if cam:
+			follow(cam)
 	for k in _cams.size():
 		var cam := _cams[k] as Camera3D
 		if not is_instance_valid(cam):

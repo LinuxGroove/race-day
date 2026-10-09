@@ -160,6 +160,17 @@ func _shot(shot: String) -> void:
 				var n := track.normal_at(mid)
 				_look(p + Vector3(n.x, 0, n.y) * 70.0 + Vector3.UP * 25.0, p)
 				await _save("feature_%d_%s_side" % [k, f.kind])
+				if str(f.kind) == "over":
+					# From the lower road, driving under the crossover.
+					var x := _crossing(f)
+					if x.size() == 2:
+						var su: float = x[1]
+						_look(track.world(track.wrap_s(su - 70.0), 0.0, 2.5), track.world(su, 0.0, 3.0))
+						await _save("feature_%d_crossing_below" % k)
+						var po := track.world(float(x[0]), 0.0)
+						var tu := track.tangent_at(su)
+						_look(po + Vector3(tu.x, 0, tu.y) * 80.0 + Vector3(0, 30, 0) + Vector3(track.normal_at(su).x, 0, track.normal_at(su).y) * 40.0, po)
+						await _save("feature_%d_crossing" % k)
 				k += 1
 		"landmarks":
 			var k := 0
@@ -182,6 +193,10 @@ func _shot(shot: String) -> void:
 				return
 			var c: Dictionary = track.corners[0]
 			_chase(track.wrap_s(float(c.start) - 30.0))
+			if str(night_info.time) == "dusk_to_night":
+				atmo.set_time(0.5)
+				await _save("evening_corner")
+				atmo.set_time(1.0)
 			await _save("night_corner")
 			_look(track.world(track.wrap_s(-60.0), 0.0, 3.0), track.world(40.0, 0.0, 1.5))
 			view.set_lights(5, false)
@@ -244,6 +259,29 @@ func _breakdown() -> void:
 
 func _cost() -> Array:
 	return [int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))]
+
+
+## Where an "over" stretch passes over the lap elsewhere: [s on the deck,
+## s on the road below], or [] if nothing passes under it.
+func _crossing(f: Dictionary) -> Array:
+	var from := float(f.from)
+	var span := fposmod(float(f.to) - from, track.length)
+	var best := INF
+	var out := []
+	var u := 0.0
+	while u <= span:
+		var so := track.wrap_s(from + u)
+		var p := track.world(so, 0.0)
+		for j in track.samples_near(Vector2(p.x, p.z), 30.0):
+			var sj: float = j * track.step
+			if absf(track.delta_s(so, sj)) < 200.0:
+				continue
+			var d := Vector2(p.x, p.z).distance_to(Vector2(track.pos[j].x, track.pos[j].z))
+			if d < best:
+				best = d
+				out = [so, sj]
+		u += 4.0
+	return out
 
 
 ## The simulation's road edges and barriers as lines, for the top shots.

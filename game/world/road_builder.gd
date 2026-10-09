@@ -129,23 +129,25 @@ func _segment(i: int) -> void:
 	var j := (i + 1) % track.n
 	var b: MeshBuf = _bufs[i / CHUNK]
 	var s := i * track.step
+	# No rain falls in a tunnel.
+	var wm := 0.0 if in_tunnel[i] else 1.0
 	if not tiles:
 		var ri := track.half[i] - LINE_W
 		var rj := track.half[j] - LINE_W
-		b.quad(point(i, -ri), point(j, -rj), point(j, rj), point(i, ri), WorldLook.wet(WorldLook.ROAD, 1.0))
+		b.quad(point(i, -ri), point(j, -rj), point(j, rj), point(i, ri), WorldLook.wet(WorldLook.ROAD, wm))
 	for side in 2:
 		var sg := sgn(side)
 		var hi := track.half[i]
 		var hj := track.half[j]
 		if not tiles:
 			# The white line.
-			b.quad(point(i, sg * (hi - LINE_W)), point(j, sg * (hj - LINE_W)), point(j, sg * hj), point(i, sg * hi), WorldLook.wet(WorldLook.LINE, 1.0))
+			b.quad(point(i, sg * (hi - LINE_W)), point(j, sg * (hj - LINE_W)), point(j, sg * hj), point(i, sg * hi), WorldLook.wet(WorldLook.LINE, wm))
 			# Kerb.
 			var ki := kerb_out(i, side)
 			var kj := kerb_out(j, side)
 			if ki > hi + 0.01 or kj > hj + 0.01:
 				var stripe := int(floorf(s / 4.0)) % 2 == 0
-				var col := WorldLook.wet(WorldLook.KERB_RED if stripe else WorldLook.KERB_WHITE, 1.0)
+				var col := WorldLook.wet(WorldLook.KERB_RED if stripe else WorldLook.KERB_WHITE, wm)
 				b.quad(point(i, sg * hi, KERB_LIFT), point(j, sg * hj, KERB_LIFT), point(j, sg * kj, KERB_LIFT), point(i, sg * ki, KERB_LIFT), col)
 			_runoff(b, i, j, side, ki, kj)
 		if deck[i] or deck[j]:
@@ -170,6 +172,9 @@ func _runoff(b: MeshBuf, i: int, j: int, side: int, ki: float, kj: float) -> voi
 	var col := WorldLook.runoff(track.run_kind[side][i])
 	if deck[i]:
 		col = WorldLook.wet(WorldLook.DECK, 0.9)
+	elif in_tunnel[i]:
+		# Grass doesn't grow in a tunnel: a dry concrete floor to the walls.
+		col = WorldLook.wet(WorldLook.TARMAC, 0.0)
 	var pit := track.pit
 	if not pit.is_empty() and side == (0 if pit.side > 0 else 1) and track.in_pit_range(s) and track.in_pit_range(s + track.step):
 		var wl: float = pit.wall_lat

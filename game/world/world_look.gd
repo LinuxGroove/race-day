@@ -84,8 +84,8 @@ const WATER_SHADER := """
 shader_type spatial;
 render_mode cull_disabled, depth_draw_opaque;
 
-uniform vec3 color : source_color = vec3(0.37, 0.64, 0.79);
-uniform vec3 deep : source_color = vec3(0.22, 0.45, 0.66);
+uniform vec3 color : source_color = vec3(0.3, 0.56, 0.75);
+uniform vec3 deep : source_color = vec3(0.15, 0.35, 0.56);
 uniform float glow : hint_range(0.0, 1.0) = 0.0;
 
 float wave(vec2 p, float t) {
@@ -102,8 +102,9 @@ void fragment() {
 	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 	float f = clamp(wave(wp.xz * 0.3, t * 0.5) * 0.5 + 0.5, 0.0, 1.0);
 	ALBEDO = mix(deep, color, f * 0.6 + 0.2);
-	ROUGHNESS = 0.08;
-	SPECULAR = 0.6;
+	// By night the sky's pale horizon would grey the water: reflect less.
+	ROUGHNESS = mix(0.08, 0.3, glow);
+	SPECULAR = mix(0.45, 0.15, glow);
 	EMISSION = color * glow * 0.15;
 }
 """
