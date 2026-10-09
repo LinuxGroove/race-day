@@ -9,3 +9,7 @@
 /parts/
 /stage/
 /prime/
+
+# Local experiments
+/scratch/
+/.claude/
