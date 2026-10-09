@@ -62,6 +62,7 @@ func _main() -> void:
 	_col.add_child(LGUi.button("Assists", _assists))
 	_col.add_child(LGUi.button("Camera and comfort", _camera))
 	_col.add_child(LGUi.button("Sound and screen", _sound))
+	_col.add_child(LGUi.button("How to play", _howto))
 	_col.add_child(LGUi.button("Leave race", _leave))
 	LGUi.focus_first(_col)
 
@@ -158,6 +159,18 @@ func _on_setup(value: Variant, key: String) -> void:
 	var setup := Progress.setup_for(scene.track.id)
 	setup[key] = value
 	scene.apply_setup(setup)
+
+
+func _howto() -> void:
+	var panel := HowToPanel.new()
+	add_child(panel)
+	panel.closed.connect(_on_howto_closed.bind(panel))
+	panel.open()
+
+
+func _on_howto_closed(panel: HowToPanel) -> void:
+	panel.queue_free()
+	_main()
 
 
 func _restart() -> void:

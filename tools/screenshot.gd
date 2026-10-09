@@ -134,6 +134,15 @@ func _menus(root: String) -> void:
 		await LGScenes.scene_changed
 		await _wait(2.5)
 		await _shot(root, "menus", "title" + ("-" + page if page != "" else ""), "Title" + (": " + page.capitalize() if page != "" else ""))
+	var title: Node = get_tree().current_scene
+	title.call("_show_howto")
+	await _wait(0.8)
+	await _shot(root, "menus", "howto", "How to play")
+	var howto: HowToPanel = title.find_children("*", "HowToPanel", true, false)[0]
+	for k in HowToPanel.pages().size() - 1:
+		howto._go(1)
+	await _wait(0.8)
+	await _shot(root, "menus", "howto-controls", "How to play: the controls")
 	Session.start_solo()
 	LGScenes.change_scene("res://game/ui/lobby.tscn")
 	await LGScenes.scene_changed
@@ -231,6 +240,9 @@ func _extras(root: String) -> void:
 	scene.toggle_pause()
 	await _wait(0.6)
 	await _shot(root, "race", "pause", "The pause menu")
+	scene._pause_menu.call("_setup")
+	await _wait(0.6)
+	await _shot(root, "race", "setup", "Car setup")
 	scene.toggle_pause()
 	scene._show_results(scene.race.results(), false)
 	await _wait(0.6)

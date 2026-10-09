@@ -129,6 +129,7 @@ func _show_main() -> void:
 	_col.add_child(LGUi.button("Career", _show_career))
 	_col.add_child(LGUi.button("Time Trial", _show_time_trial))
 	_col.add_child(LGUi.button("Racing School", _show_school))
+	_col.add_child(LGUi.button("How to play", _show_howto))
 	_col.add_child(LGUi.button("Local network play", _show_local))
 	_col.add_child(LGUi.button("Play online", _show_online))
 	_col.add_child(LGUi.button("Settings", _show_settings))
@@ -715,6 +716,18 @@ func _join_online(code: LineEdit) -> void:
 
 
 # --- Settings and about -------------------------------------------------
+
+func _show_howto() -> void:
+	var panel := HowToPanel.new()
+	_ui.add_child(panel)
+	panel.closed.connect(_on_howto_closed.bind(panel))
+	panel.open()
+
+
+func _on_howto_closed(panel: HowToPanel) -> void:
+	panel.queue_free()
+	_show_main()
+
 
 func _show_settings() -> void:
 	_clear()

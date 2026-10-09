@@ -29,6 +29,7 @@ const SETTING_DEFAULTS := {
 	"tutorial": {
 		"welcomed": false,
 		"hints": true,
+		"howto_seen": false,
 	},
 	"player": {
 		# The team the player drives for outside the career.
