@@ -8,7 +8,7 @@ extends RefCounted
 ## loop for each rpm band in BANDS, the rev limiter, the pit limiter's
 ## bouncing note, the turbo and the hybrid drive whines, and a few exhaust
 ## pops. Each band's loop is recorded at its BANDS rpm and played back at
-## pitch rpm / band, crossfading between neighbouring bands.
+## pitch rpm / band; the band changes as the rpm moves (see _band_weights).
 ##
 ## An EngineSynth instance is one car's engine at run time: call `update()`
 ## with the car's state each frame, then read the gains (linear, 0 to about
@@ -31,6 +31,10 @@ const PIT_RPM := 8000.0
 ## The drive whine is recorded at this rpm; the turbo whistle at full spool.
 const DRIVE_RPM := 10000.0
 const POPS := 4
+## Seconds to crossfade from one band to the next, and how far past the
+## midpoint between two bands (as a ratio) the rpm goes before changing.
+const BAND_FADE := 0.07
+const BAND_HYSTERESIS := 1.03
 const DIR := "res://assets/audio/engine/"
 
 ## Per voice, after update(): gains (linear) and pitch scales.
@@ -56,6 +60,9 @@ var _cut := 0.0
 var _blip := 0.0
 var _limiter := 0.0
 var _pit := 0.0
+## The band playing now, and each band's crossfade position (0 to 1).
+var band := 0
+var _bw := PackedFloat32Array()
 var _crackle_t := 0.3
 var _pops: Array = []
 var rng := RandomNumberGenerator.new()
@@ -65,6 +72,8 @@ func _init() -> void:
 	on_gain.resize(BANDS.size())
 	off_gain.resize(BANDS.size())
 	band_pitch.resize(BANDS.size())
+	_bw.resize(BANDS.size())
+	_bw[0] = 1.0
 	rng.randomize()
 
 
@@ -110,7 +119,7 @@ func update(rpm: float, throttle: float, gear: int, rpm_limit: float, pit_limite
 	var lim_keep := 1.0 - maxf(_limiter, _pit)
 	var on_level := level * on_amt * cut_mul * lim_keep
 	var off_level := level * db_to_linear(lerpf(-11.0, -6.0, x)) * off_amt * lerpf(1.0, 0.4, _pit)
-	_band_weights(r, on_level, off_level)
+	_band_weights(r, on_level, off_level, dt)
 	limiter_gain = level * _limiter * on_amt
 	limiter_pitch = r / LIMITER_RPM
 	pit_gain = db_to_linear(-3.0) * _pit
@@ -137,26 +146,22 @@ func _pop(gain: float) -> void:
 		_pops.append(gain)
 
 
-## Equal-power crossfade between the two bands either side of the rpm, in
-## log rpm.
-func _band_weights(r: float, on_level: float, off_level: float) -> void:
+## One band plays at a time. Two bands at the same pitch can cancel each
+## other out wherever their waveforms are out of phase, so instead of
+## blending neighbours across the rpm range, the band changes when the rpm
+## passes the midpoint between two bands (with a little hysteresis) and the
+## two crossfade over BAND_FADE seconds. An on-throttle and an overrun loop
+## of the same band are the same length and start together (CarAudio does
+## that), so they stay in step and blend cleanly.
+func _band_weights(r: float, on_level: float, off_level: float, dt: float) -> void:
 	var nb := BANDS.size()
-	var k := 0
-	var t := 0.0
-	if r <= BANDS[0]:
-		k = 0
-	elif r >= BANDS[nb - 1]:
-		k = nb - 1
-	else:
-		while k < nb - 2 and r >= BANDS[k + 1]:
-			k += 1
-		t = log(r / BANDS[k]) / log(BANDS[k + 1] / BANDS[k])
+	while band < nb - 1 and r > sqrt(BANDS[band] * BANDS[band + 1]) * BAND_HYSTERESIS:
+		band += 1
+	while band > 0 and r < sqrt(BANDS[band - 1] * BANDS[band]) / BAND_HYSTERESIS:
+		band -= 1
 	for i in nb:
-		var w := 0.0
-		if i == k:
-			w = cos(t * PI * 0.5)
-		elif i == k + 1:
-			w = sin(t * PI * 0.5)
+		_bw[i] = move_toward(_bw[i], 1.0 if i == band else 0.0, dt / BAND_FADE)
+		var w := sin(_bw[i] * PI * 0.5)
 		on_gain[i] = w * on_level
 		off_gain[i] = w * off_level
 		band_pitch[i] = r / BANDS[i]
