@@ -16,7 +16,7 @@ extends Node
 ##   sounds.radio()
 ##
 ## handle_events plays: a beep per start light and a higher tone at lights
-## out, a lap beep, a chime for a penalty and a softer one for a track limits
+## out (and a cheer from the stand nearest pole), a lap beep, a chime for a penalty and a softer one for a track limits
 ## warning (focus cars only), wheel guns at any car's pit stop, and cheers
 ## from the nearest grandstand when a car takes the lead or finishes on the
 ## podium (a big one at the chequered flag). Each sound also has its own
@@ -93,6 +93,8 @@ func handle_events(events: Array) -> void:
 				start_light(int(ev.get("n", 1)))
 			"lights_out":
 				lights_out()
+				if race and not race.order.is_empty():
+					cheer((race.order[0] as Race.Entry).sim.pos)
 			"lap":
 				if mine:
 					lap()

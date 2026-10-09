@@ -42,7 +42,12 @@ const TRIM := {
 }
 ## How loud the cockpit is: the exhaust is behind and muffled by the bus's
 ## filter, the intake, turbo and gears are right behind the driver's head.
-const INSIDE := {"engine": -3.0, "turbo": 5.0, "drive": 6.0, "wind": 3.0, "squeal": 2.0}
+## (The engine's level applies to the whines and limiters as well.)
+const INSIDE := {"engine": -3.0, "turbo": 6.0, "drive": 7.0, "wind": 3.0, "squeal": 2.0}
+## Headroom for a pack of cars, and the people's own cars a little quieter
+## still: they are always right next to the camera.
+const MASTER_DB := -6.0
+const OWN_CAR_DB := -3.0
 
 var spec: CarSpec
 var is_player := false
@@ -142,7 +147,7 @@ func update(sim: CarSim, throttle := -1.0, dt := 1.0 / 60.0) -> void:
 	var pit_limited := sim.limiter_on and sim.spot.in_pit and sim.speed > CarSim.PIT_LIMIT - 1.5
 	engine.update(sim.rpm, thr, sim.gear, sim.spec.rpm_limit, pit_limited, sim.speed, dt)
 	var dop := 1.0 if is_player else _doppler(sim, dt)
-	var g := _fade * _fade
+	var g := _fade * _fade * db_to_linear(MASTER_DB + (OWN_CAR_DB if is_player else 0.0))
 	var e := g * _db("engine")
 	for i in _on.size():
 		_band(i, engine.on_gain[i] * e, engine.off_gain[i] * e, engine.band_pitch[i] * dop)
@@ -345,6 +350,7 @@ static func _cockpit_bus() -> String:
 	var idx := AudioServer.bus_count - 1
 	AudioServer.set_bus_name(idx, COCKPIT_BUS)
 	AudioServer.set_bus_send(idx, BUS)
+	AudioServer.set_bus_volume_db(idx, -2.0)
 	var lp := AudioEffectLowPassFilter.new()
 	lp.cutoff_hz = 2600.0
 	lp.resonance = 0.6

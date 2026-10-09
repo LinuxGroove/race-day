@@ -76,8 +76,8 @@ static func kerb() -> PackedFloat32Array:
 		for i in step * 2:
 			var t := float(i) / RATE
 			var j := (k * step + i) % n
-			out[j] += amp * (sin(TAU * 62.0 * t) * exp(-t / 0.016) + 0.25 * rng.randf_range(-1.0, 1.0) * exp(-t / 0.004))
-	AudioDsp.chain(out, [AudioDsp.lowpass(1400.0), AudioDsp.highpass(30.0)], true)
+			out[j] += amp * (sin(TAU * 62.0 * t) * exp(-t / 0.016) + 0.3 * sin(TAU * 180.0 * t) * exp(-t / 0.008) + 0.7 * rng.randf_range(-1.0, 1.0) * exp(-t / 0.004))
+	AudioDsp.chain(out, [AudioDsp.lowpass(2400.0), AudioDsp.highpass(30.0)], true)
 	AudioDsp.level(out, -14.0, -2.0)
 	return out
 
