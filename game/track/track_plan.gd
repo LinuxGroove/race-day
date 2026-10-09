@@ -25,6 +25,9 @@ var pit_side := -1
 ## The pit lane leaves this far before the start line and rejoins this far after it.
 var pit_before := 340.0
 var pit_after := 260.0
+## The pit lane reaches at least this far from the centreline (the Proving
+## Ground's tiles lay a wider lane than the usual one).
+var pit_outer_min := 0.0
 ## The default edges for both sides: run-off kind, its width to the barrier,
 ## and the barrier. Corners put `corner_outside` on their outside.
 var edge := {"kind": Runoff.GRASS, "width": 14.0, "barrier": Barrier.ARMCO}
@@ -156,6 +159,7 @@ func copy() -> TrackPlan:
 	p.pit_side = pit_side
 	p.pit_before = pit_before
 	p.pit_after = pit_after
+	p.pit_outer_min = pit_outer_min
 	p.edge = edge.duplicate(true)
 	p.corner_outside = corner_outside.duplicate(true)
 	p.kerb_radius = kerb_radius

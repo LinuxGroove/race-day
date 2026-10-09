@@ -165,6 +165,7 @@ func add_car(id: int, name: String, team: int, slot: int, ai_pace := -1.0, opts 
 	var spec := Teams.spec_for(int(opts.get("spec_team", team)), opts.get("upgrades", {}))
 	spec.apply_setup(opts.get("setup", CarSpec.PRESETS.balanced))
 	e.sim = CarSim.new(spec, track)
+	e.sim.set_body(str(Teams.team(team).chassis))
 	e.sim.compound = int(opts.get("compound", Tyres.MEDIUM if wetness < 0.3 else Tyres.INTER))
 	e.sim.wetness = wetness
 	e.sim.wear_scale = tyre_wear
@@ -429,9 +430,9 @@ func _contacts() -> void:
 				continue
 			if a.remote and b.remote:
 				continue
-			var pa := Vector2(a.sim.pos.x, a.sim.pos.z)
-			var pb := Vector2(b.sim.pos.x, b.sim.pos.z)
-			if pa.distance_squared_to(pb) > 36.0:
+			var pa := a.sim.box_centre()
+			var pb := b.sim.box_centre()
+			if pa.distance_squared_to(pb) > 49.0:
 				continue
 			if absf(a.sim.pos.y - b.sim.pos.y) > 2.5:
 				continue
@@ -477,7 +478,7 @@ func _collide(a: Entry, b: Entry, pa: Vector2, pb: Vector2) -> void:
 
 
 func _extent(c: CarSim, axis: Vector2) -> float:
-	return absf(c.forward2().dot(axis)) * CarSim.HALF_LENGTH + absf(c.left2().dot(axis)) * CarSim.HALF_WIDTH
+	return absf(c.forward2().dot(axis)) * c.half_length() + absf(c.left2().dot(axis)) * c.half_width
 
 
 # --- The rules (host only) ----------------------------------------------

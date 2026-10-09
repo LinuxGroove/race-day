@@ -52,6 +52,7 @@ static func plan() -> TrackPlan:
 	p.start_at = start_at()
 	p.pit_before = p.start_at - PIT_IN * TILE
 	p.pit_after = PIT_OUT * TILE - p.start_at
+	p.pit_outer_min = pit_outer()
 	for pc: Array in LAP:
 		match str(pc[0]):
 			"S":

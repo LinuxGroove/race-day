@@ -175,6 +175,15 @@ func _show_name(first_time: bool) -> void:
 	if not first_time:
 		_col.add_child(LGUi.button("Back", _show_driver))
 	edit.grab_focus.call_deferred()
+	# With a controller, go straight to the on-screen keyboard (deferred, so
+	# the press that chose this page has been let go and types nothing).
+	if LGInput.menu_pad() >= 0 or (first_time and not Input.get_connected_joypads().is_empty()):
+		_open_keyboard.call_deferred(edit)
+
+
+func _open_keyboard(edit: LineEdit) -> void:
+	if is_instance_valid(edit) and edit.is_inside_tree():
+		OnScreenKeyboard.open(edit)
 
 
 func _save_name(_t: String, edit: LineEdit, first_time: bool) -> void:

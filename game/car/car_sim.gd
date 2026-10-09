@@ -17,9 +17,17 @@ enum Surface { ROAD, KERB, GRASS, GRAVEL, TARMAC, SAND, PIT }
 ## Grip and rolling resistance on each surface (as a share of load).
 const SURFACE_GRIP := [1.0, 0.93, 0.55, 0.5, 0.95, 0.45, 0.97]
 const SURFACE_ROLL := [0.012, 0.02, 0.07, 0.34, 0.016, 0.26, 0.014]
-## Half the car's width and length, for barriers and contact.
-const HALF_WIDTH := 0.98
-const HALF_LENGTH := 2.75
+## Each chassis's footprint from the middle of its wheels (CarView's origin),
+## for barriers and contact: half its width, and how far the nose and the
+## tail reach. Tests check these cover the models.
+const BODIES := {
+	"race": Vector3(1.40, 3.01, 2.49),
+	"future": Vector3(1.26, 3.15, 2.44),
+	"racer": Vector3(1.51, 2.86, 2.06),
+	"classic": Vector3(1.49, 3.00, 2.51),
+}
+## The pit wall's half thickness (RoadBuilder draws it 0.7 m thick).
+const PIT_WALL_HALF := 0.35
 const SHIFT_UP_RPM := 11650.0
 const SHIFT_DOWN_RPM := 7400.0
 const PIT_LIMIT := Track.PIT_LIMIT_KMH / 3.6
@@ -27,6 +35,10 @@ const PIT_LIMIT := Track.PIT_LIMIT_KMH / 3.6
 var spec: CarSpec
 var track: Track
 var spot := Track.Spot.new()
+## The footprint (see BODIES).
+var half_width := 1.40
+var nose := 3.01
+var tail := 2.49
 
 var pos := Vector3.ZERO
 var yaw := 0.0
@@ -87,11 +99,30 @@ var _ax := 0.0
 var _wheel_surf := [0, 0, 0, 0]
 var _reverse_t := 0
 var _last_lat := 0.0
+var _corner := Track.Spot.new()
 
 
 func _init(p_spec: CarSpec = null, p_track: Track = null) -> void:
 	spec = p_spec if p_spec else CarSpec.new()
 	track = p_track
+
+
+## Gives the car a chassis's footprint (a key of BODIES).
+func set_body(chassis: String) -> void:
+	var b: Vector3 = BODIES.get(chassis, BODIES.race)
+	half_width = b.x
+	nose = b.y
+	tail = b.z
+
+
+## Half the footprint's length, and its middle (the nose reaches further than
+## the tail), for contact between cars.
+func half_length() -> float:
+	return (nose + tail) * 0.5
+
+
+func box_centre() -> Vector2:
+	return Vector2(pos.x, pos.z) + forward2() * (nose - tail) * 0.5
 
 
 ## Puts the car at (s, lat) on the track, facing along it, stopped.
@@ -109,6 +140,7 @@ func place(s: float, lat: float, heading_offset := 0.0) -> void:
 	# Start the search at s, so a crossover's other level never wins.
 	spot.idx = -1
 	track.locate(Vector2(pos.x, pos.z), int(track.wrap_s(s) / track.step) % track.n, spot)
+	_last_lat = spot.lat
 
 
 ## Places the car at (s, lat) already moving at `v` m/s along the track.
@@ -160,6 +192,7 @@ func load_state(st: Array) -> void:
 	compound = st[12]
 	reverse = st[13]
 	track.locate(Vector2(pos.x, pos.z), spot.idx, spot)
+	_last_lat = spot.lat
 
 
 ## The surface under a point (s, lat) on the track.
@@ -485,40 +518,69 @@ func _tyres(dt: float, fx: float, fy: float, load: float) -> void:
 	tyre_temp = clampf(tyre_temp + heat * dt / 30.0, 0.0, 1.0)
 
 
-## Keeps the car inside the barriers (and on its side of the pit wall).
+## Keeps the car's footprint inside the barriers (and on its side of the
+## pit wall): whichever corner reaches furthest into one pushes the car back
+## out, and a corner hitting it turns the car as well as slowing it.
 func _barriers() -> void:
-	var lat := spot.lat
-	var side := 0 if lat > 0.0 else 1
-	var limit := track.barrier_off(spot.s, side) - HALF_WIDTH
-	var n_out := spot.normal * (1.0 if lat > 0.0 else -1.0)
-	if absf(lat) > limit:
-		_hit_wall(n_out, absf(lat) - limit)
-	elif track.pit_wall_at(spot.s):
-		var wall: float = float(track.pit.wall_lat) * float(track.pit.side)
-		var rel := lat - wall
-		# Which side of the wall the car came from.
-		var was_lane := _last_lat * float(track.pit.side) > float(track.pit.wall_lat)
-		var nside := spot.normal * float(track.pit.side)
-		if was_lane and rel * float(track.pit.side) < HALF_WIDTH:
-			_hit_wall(-nside, HALF_WIDTH - rel * float(track.pit.side))
-		elif not was_lane and rel * float(track.pit.side) > -HALF_WIDTH:
-			_hit_wall(nside, HALF_WIDTH + rel * float(track.pit.side))
+	for pass_i in 2:
+		var side := 0 if spot.lat > 0.0 else 1
+		var pit_wall := track.pit_wall_at(spot.s) or track.pit_wall_at(spot.s + nose) or track.pit_wall_at(spot.s - tail)
+		# Nowhere near either: nothing to do.
+		if not pit_wall and absf(spot.lat) < track.barrier_off(spot.s, side) - nose - 1.5:
+			break
+		var was_lane := false
+		var pside := 0.0
+		var wall := 0.0
+		if pit_wall:
+			pside = float(track.pit.side)
+			wall = float(track.pit.wall_lat)
+			was_lane = _last_lat * pside > wall
+		var deepest := 0.0
+		var hit_n := Vector2.ZERO
+		var hit_r := Vector2.ZERO
+		var f := forward2()
+		var l := left2()
+		for k in 4:
+			var r := f * (nose if k < 2 else -tail) + l * (half_width if k % 2 == 0 else -half_width)
+			var c := track.locate(Vector2(pos.x, pos.z) + r, spot.idx, _corner)
+			var cside := 0 if c.lat > 0.0 else 1
+			var over := absf(c.lat) - track.barrier_off(c.s, cside)
+			if over > deepest:
+				deepest = over
+				hit_n = c.normal * (1.0 if c.lat > 0.0 else -1.0)
+				hit_r = r
+			if pit_wall and track.pit_wall_at(c.s):
+				# Into the wall's face on the side the car came from.
+				var rel := c.lat * pside - wall
+				var depth := PIT_WALL_HALF - rel if was_lane else PIT_WALL_HALF + rel
+				if depth > deepest and depth < PIT_WALL_HALF * 2.0 + half_width:
+					deepest = depth
+					hit_n = c.normal * (-pside if was_lane else pside)
+					hit_r = r
+		if deepest <= 0.0:
+			break
+		_hit_wall(hit_n, deepest, hit_r)
 	_last_lat = spot.lat
 
 
-## Pushes the car back off a wall facing -n (n points into the wall).
-func _hit_wall(n: Vector2, depth: float) -> void:
+## Pushes the car back off a wall facing -n (n points into the wall), hit by
+## the point `r` from the car's middle.
+func _hit_wall(n: Vector2, depth: float, r := Vector2.ZERO) -> void:
 	pos.x -= n.x * depth
 	pos.z -= n.y * depth
-	var vn := vel.dot(n)
+	# The point's own speed into the wall, with the car's turning.
+	var arm := Vector2(r.y, -r.x).dot(n)
+	var vn := vel.dot(n) + yaw_rate * arm
 	if vn > 0.0:
-		vel -= n * vn * 1.25
+		# A little bounce, shared between pushing the car back and turning it.
+		var j := 1.2 * vn / (1.0 / spec.mass + arm * arm / spec.yaw_inertia)
+		vel -= n * j / spec.mass
+		yaw_rate -= arm * j / spec.yaw_inertia
+		# Scraping along the wall.
 		var t := Vector2(n.y, -n.x)
 		var vt := vel.dot(t)
 		vel -= t * vt * clampf(vn * 0.03, 0.0, 0.5)
 		impact = maxf(impact, vn)
-		if vn > 2.0:
-			yaw_rate *= 0.7
 		wall_t = 0.0
 		if vn > 6.0:
 			var hit := (vn - 6.0) * 0.035 * damage_scale
