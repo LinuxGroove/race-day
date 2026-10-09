@@ -156,6 +156,9 @@ func drive(dt: float, input: CarInput) -> void:
 		# Leave the tyres the grip the corner is already using.
 		var side := minf(car.lat_use(), 0.9)
 		input.brake = minf(input.brake, car.brake_limit() * 0.98 * sqrt(1.0 - side * side))
+		# The rear stepping out under braking: ease off until it grips.
+		if absf(slip) > 0.05 and absf(v) > 15.0:
+			input.brake *= clampf(1.0 - (absf(slip) - 0.05) * 10.0, 0.15, 1.0)
 	_recover(dt, input, v, vt > 2.0)
 	_maybe_mistake(dt)
 	input.drs = true
@@ -354,20 +357,34 @@ func _traffic_speed(v: float) -> float:
 		# Far enough ahead to brake down to its speed in time?
 		if gap > maxf(14.0, (v * v - ov * ov) / 24.0 + v * 0.6 + 10.0):
 			continue
-		# In the way now, or where our path will be when we get there.
+		# In the way now, or where our path will be when we get there. A car
+		# sliding across the road, or coming back on after a spin, is where
+		# it's heading, and wider when it's sideways.
 		var their := traffic_lat[k]
-		var path_dl := absf(_lat_at(car.spot.s + gap) - their)
-		if absf(their - car.spot.lat) > 2.6 and path_dl > 2.6:
+		var arrive := clampf(gap / maxf(v - ov, 1.0), 0.0, 2.0)
+		var drift := other.vel.dot(track.normal_at(other.spot.s)) * arrive
+		var rel := absf(wrapf(other.yaw - track.heading_at(other.spot.s), -PI, PI))
+		var reach := 2.6 + (1.6 if rel > 0.5 and rel < PI - 0.5 else 0.0)
+		var path_lat := _lat_at(car.spot.s + gap)
+		var path_dl := _miss(path_lat, their, their + drift)
+		if _miss(car.spot.lat, their, their + drift) > reach and path_dl > reach:
 			continue
 		var room := gap - 7.0
 		var safe := sqrt(maxf(0.0, ov * ov + 2.0 * 14.0 * maxf(room, 0.0)))
 		if room < 0.0:
 			safe = ov - 2.0
 		# Already moving over to pass: keep rolling to get round it.
-		if path_dl > 2.8:
+		if path_dl > reach + 0.2:
 			safe = maxf(safe, minf(v, 12.0) if room > 1.0 else 6.0)
 		lim = minf(lim, safe)
 	return lim
+
+
+## How far `lat` is from a car going from `a` to `b` across the road.
+static func _miss(lat: float, a: float, b: float) -> float:
+	if lat >= minf(a, b) and lat <= maxf(a, b):
+		return 0.0
+	return minf(absf(lat - a), absf(lat - b))
 
 
 ## Gets going again after a spin or a trip into the gravel: turns round

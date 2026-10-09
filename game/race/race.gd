@@ -57,6 +57,8 @@ class Entry:
 	var next_compound := Tyres.HARD
 	var in_pit_lane := false
 	var pit_stop_t := 0.0
+	## Already stopped on this visit to the pit lane (one stop per visit).
+	var pit_served := false
 	var speeding := false
 	var drs_ok := false
 	var blue := false
@@ -101,12 +103,25 @@ var entries: Array = []
 ## Entries in running order.
 var order: Array = []
 ## 0 dry to 1 soaked.
+## How wet the road is (0 dry to 1 soaked) and how hard it's raining now.
 var wetness := 0.0
 var rain := 0.0
+## The weather through the session: [[time in seconds, rain 0 to 1], ...],
+## from lights out (or the start of a non-race session).
+var forecast: Array = []
+var _wet_step := -1
 var damage := 2
 var tyre_wear := 1.0
 var vsc := false
 var vsc_t := 0.0
+## The safety car: out on track, how long until it comes in, how far round
+## it is (on the leader's s_total scale), and "in this lap".
+var sc := false
+var sc_t := 0.0
+var sc_s := 0.0
+var sc_in := false
+## Its pace as a share of the racing line's speed.
+const SC_PACE := 0.55
 var drs_enabled := true
 var mandatory_compounds := false
 var fastest := {"id": 0, "time": 0.0, "lap": 0}
@@ -114,6 +129,8 @@ var leader_finished_t := -1.0
 ## The only rules a client runs are its own car's physics: the host owns
 ## laps, flags and results (see apply_status).
 var authority := true
+## Keeps the cars on the grid until every device is ready (multiplayer).
+var hold_start := false
 ## [{type, ...}] for the HUD and sound; drained by the view each frame.
 var events: Array = []
 var rng := RandomNumberGenerator.new()
@@ -144,7 +161,8 @@ func add_car(id: int, name: String, team: int, slot: int, ai_pace := -1.0, opts 
 	e.team = team
 	e.number = int(opts.get("number", id))
 	e.bot = ai_pace >= 0.0
-	var spec := Teams.spec_for(team, opts.get("upgrades", {}))
+	# Time Trial puts everyone in the same car ("spec_team").
+	var spec := Teams.spec_for(int(opts.get("spec_team", team)), opts.get("upgrades", {}))
 	spec.apply_setup(opts.get("setup", CarSpec.PRESETS.balanced))
 	e.sim = CarSim.new(spec, track)
 	e.sim.compound = int(opts.get("compound", Tyres.MEDIUM if wetness < 0.3 else Tyres.INTER))
@@ -169,7 +187,7 @@ func add_car(id: int, name: String, team: int, slot: int, ai_pace := -1.0, opts 
 
 ## The car's speed profile along the line for a team in this weather.
 func speeds_for(team: int) -> PackedFloat32Array:
-	var key := "%d:%.2f" % [team, wetness]
+	var key := "%d:%.1f" % [team, wetness]
 	if not _speeds.has(key):
 		_speeds[key] = RacingLine.speeds(track, Teams.spec_for(team), reference_grip())
 	return _speeds[key]
@@ -177,7 +195,8 @@ func speeds_for(team: int) -> PackedFloat32Array:
 
 ## The tyre grip the AI's speed profiles are worked out for.
 func reference_grip() -> float:
-	return Tyres.grip(Tyres.MEDIUM if wetness < 0.3 else Tyres.INTER, wetness, 0.15, 1.0)
+	var w := snappedf(wetness, 0.1)
+	return Tyres.grip(Tyres.MEDIUM if w < 0.3 else Tyres.INTER, w, 0.15, 1.0)
 
 
 ## The pit box for a team, as a distance along the lap.
@@ -233,10 +252,22 @@ func entry(id: int) -> Entry:
 ## Advances the session by dt seconds (call with DT steps).
 func step(dt: float) -> void:
 	clock += dt
+	if not authority:
+		# Another device runs the rules: the phase, lights and timing arrive
+		# from there. This copy only drives its own cars.
+		if phase == Phase.RACING or phase == Phase.FINISHED:
+			time += dt
+		var waiting := phase == Phase.GRID or phase == Phase.LIGHTS
+		if waiting:
+			_hold_on_grid()
+		_drive_cars(dt, waiting)
+		if not waiting:
+			_contacts()
+		return
 	match phase:
 		Phase.GRID:
 			_hold_on_grid()
-			if clock > 2.0:
+			if clock > 2.0 and not hold_start:
 				phase = Phase.LIGHTS
 				_lights_t = 0.0
 		Phase.LIGHTS:
@@ -379,6 +410,8 @@ func _traffic(k: int) -> void:
 		ai.traffic_lat.append(sp.lat)
 	ai.blue = e.blue
 	ai.vsc = 0.62 if vsc else 0.0
+	if sc:
+		ai.vsc = _sc_pace(e)
 
 
 ## Car against car: two boxes pushed apart with an impulse.
@@ -457,9 +490,12 @@ func _rules(dt: float) -> void:
 		_track_limits(e)
 		_drs(e)
 		_retirement(e, dt)
+	if sc:
+		_move_safety_car(dt)
 	if _tick % ORDER_EVERY == 0:
 		_update_order()
 	if _tick % 30 == 0:
+		_weather(dt * 30.0)
 		_flags(dt * 30.0)
 		_strategy()
 	_check_finish()
@@ -553,6 +589,7 @@ func _pit(e: Entry, dt: float) -> void:
 	if in_lane and not e.in_pit_lane:
 		e.in_pit_lane = true
 		e.speeding = false
+		e.pit_served = false
 		_events("pit_in", {"id": e.id})
 	elif not in_lane and e.in_pit_lane and absf(track.delta_s(0.0, e.sim.spot.s) - float(track.pit.exit)) < 40.0:
 		e.in_pit_lane = false
@@ -579,6 +616,7 @@ func _pit(e: Entry, dt: float) -> void:
 			if not e.compounds.has(e.sim.compound):
 				e.compounds.append(e.sim.compound)
 			e.stops += 1
+			e.pit_served = true
 			e.next_compound = _second_compound(e.sim.compound)
 			_events("pit_done", {"id": e.id, "compound": e.sim.compound})
 			if e.ai:
@@ -588,7 +626,7 @@ func _pit(e: Entry, dt: float) -> void:
 	var box := box_for(e.team)
 	var to_box := absf(track.delta_s(e.sim.spot.s, box))
 	var box_lat := float(track.pit.box_lat) * float(track.pit.side)
-	if to_box < 3.0 and absf(e.sim.spot.lat - box_lat) < 3.0 and e.sim.speed < 1.0:
+	if to_box < 3.0 and absf(e.sim.spot.lat - box_lat) < 3.0 and e.sim.speed < 1.0 and not e.pit_served:
 		var wanted := e.ai == null or e.ai.pit_request
 		if wanted:
 			var t := BASE_STOP + rng.randf_range(0.0, 0.6)
@@ -634,7 +672,7 @@ func _drs(e: Entry) -> void:
 	if not drs_enabled or track.drs.is_empty() or e.retired:
 		e.sim.drs_open = false
 		return
-	var allowed := kind != Kind.RACE or (e.lap >= 3 and not vsc and wetness < 0.3)
+	var allowed := kind != Kind.RACE or (e.lap >= 3 and not vsc and not sc and wetness < 0.3)
 	var s := e.sim.spot.s
 	for z in track.drs:
 		var det := float(z.detect)
@@ -676,10 +714,16 @@ func _retirement(e: Entry, dt: float) -> void:
 		e.retired = true
 		e.retire_t = time
 		_events("retired", {"id": e.id})
-		if not vsc and phase == Phase.RACING and leader_finished_t < 0.0:
-			vsc = true
-			vsc_t = rng.randf_range(35.0, 55.0)
-			_events("vsc", {"on": true})
+		if not vsc and not sc and phase == Phase.RACING and leader_finished_t < 0.0:
+			# A car stopped on the racing surface brings out the safety car;
+			# one that gets off the road, the virtual one.
+			var on_road := absf(e.sim.spot.lat) < track.value_at(track.half, e.sim.spot.s) + 2.0
+			if on_road and rng.randf() < 0.65 and laps - leader_lap() >= 2:
+				deploy_safety_car()
+			else:
+				vsc = true
+				vsc_t = rng.randf_range(35.0, 55.0)
+				_events("vsc", {"on": true})
 		return
 	# Stuck and going nowhere for a long time counts as a retirement too.
 	if e.sim.speed < 1.0 and phase == Phase.RACING and e.pit_stop_t <= 0.0 and not e.finished and e.ai:
@@ -690,7 +734,46 @@ func _retirement(e: Entry, dt: float) -> void:
 		e.stalled_t = 0.0
 
 
+## Rain from the forecast wets the road; a dry line comes back slowly. The
+## AI's speeds follow the road in steps.
+func _weather(dt: float) -> void:
+	if forecast.is_empty():
+		return
+	var r := float(forecast[0][1])
+	for k in forecast.size():
+		if time >= float(forecast[k][0]):
+			r = float(forecast[k][1])
+			if k + 1 < forecast.size():
+				var t0 := float(forecast[k][0])
+				var t1 := float(forecast[k + 1][0])
+				r = lerpf(r, float(forecast[k + 1][1]), clampf((time - t0) / maxf(t1 - t0, 1.0), 0.0, 1.0))
+	if absf(r - rain) > 0.05 and (r > 0.1) != (rain > 0.1):
+		_events("rain", {"on": r > 0.1})
+	rain = r
+	if rain > wetness:
+		wetness = minf(rain, wetness + dt * (0.004 + rain * 0.01))
+	else:
+		wetness = maxf(rain, wetness - dt * 0.0025)
+	var step_now := int(roundf(wetness * 10.0))
+	if step_now != _wet_step:
+		_wet_step = step_now
+		for e in entries:
+			if e.ai:
+				e.ai.speeds = speeds_for(e.team)
+				e.ai.profile_grip = reference_grip()
+
+
 func _flags(dt: float) -> void:
+	if sc:
+		sc_t -= dt
+		if sc_t <= 0.0 and not sc_in:
+			sc_in = true
+			sc_t = 22.0
+			_events("sc", {"on": true, "in": true})
+		elif sc_t <= 0.0 and sc_in:
+			sc = false
+			sc_in = false
+			_events("sc", {"on": false})
 	if vsc:
 		vsc_t -= dt
 		if vsc_t <= 0.0:
@@ -761,6 +844,9 @@ func _strategy() -> void:
 			want = true
 		elif e.sim.wear > 0.72 and laps_left > 2:
 			want = true
+		elif sc and not sc_in and e.sim.wear > 0.4 and laps_left > 3:
+			# A cheap stop while the field is slow behind the safety car.
+			want = true
 		elif mandatory_compounds and e.compounds.size() < 2 and Tyres.is_slick(c) and wetness < 0.3:
 			# Make the required stop by two thirds distance.
 			if e.lap >= int(laps * (0.4 + (e.id % 5) * 0.06)):
@@ -769,6 +855,57 @@ func _strategy() -> void:
 			want = true
 		if want:
 			e.ai.pit_request = true
+
+
+# --- The safety car ---------------------------------------------------------
+
+## Sends out the safety car, just ahead of the leader. The field queues up
+## behind it, with no overtaking, until it comes in a minute or two later.
+func deploy_safety_car() -> void:
+	if order.is_empty():
+		return
+	sc = true
+	sc_in = false
+	sc_t = rng.randf_range(60.0, 95.0)
+	vsc = false
+	sc_s = order[0].s_total + 160.0
+	_events("sc", {"on": true})
+
+
+func leader_lap() -> int:
+	return order[0].lap if not order.is_empty() else 0
+
+
+## Where the safety car is on the road (a distance round the lap).
+func safety_car_s() -> float:
+	return track.wrap_s(sc_s)
+
+
+func _move_safety_car(dt: float) -> void:
+	var s := track.wrap_s(sc_s)
+	sc_s += minf(track.value_at(track.line_speed, s) * SC_PACE, 48.0) * dt
+
+
+## How fast a car may go under the safety car, as a share of its speeds: the
+## leader keeps a gap to the safety car, everyone else closes up to the car
+## ahead and then holds station.
+func _sc_pace(e: Entry) -> float:
+	if e.sim.spot.in_pit or e.retired or e.finished:
+		return 0.0
+	var gap := 0.0
+	var i := order.find(e)
+	var ahead: Entry = null
+	for k in range(i - 1, -1, -1):
+		if not order[k].retired and not order[k].sim.spot.in_pit:
+			ahead = order[k]
+			break
+	if ahead == null:
+		gap = sc_s - e.s_total
+		if sc_in:
+			return 0.62
+		return SC_PACE * (0.9 if gap < 45.0 else 1.0 if gap < 90.0 else 1.4)
+	gap = ahead.s_total - e.s_total
+	return SC_PACE * (0.92 if gap < 22.0 else 1.0 if gap < 45.0 else 1.5)
 
 
 func _second_compound(c: int) -> int:
@@ -895,11 +1032,82 @@ func results() -> Array:
 
 func _events(type: String, data := {}) -> void:
 	var ev := data.duplicate()
-	ev.type = type
-	ev.t = time
+	ev["type"] = type
+	ev["t"] = time
 	events.append(ev)
 	if events.size() > 200:
 		events = events.slice(events.size() - 200)
+
+
+## Everything needed to go back to this moment (the rewind).
+func snapshot() -> Dictionary:
+	var cars := []
+	for e in entries:
+		var fields := {}
+		for prop in e.get_property_list():
+			if not (int(prop.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE):
+				continue
+			var key: String = prop.name
+			if key in ["sim", "input", "ai"]:
+				continue
+			var v = e.get(key)
+			fields[key] = v.duplicate(true) if v is Array or v is Dictionary else v
+		var ai := []
+		if e.ai:
+			ai = [e.ai.offset, e.ai.pit_phase, e.ai.pit_request]
+		cars.append([e.sim.save_state(), fields, ai, e.sim.limiter_on, e.sim.drs_open])
+	var ids := []
+	for e in order:
+		ids.append(e.id)
+	return {
+		"cars": cars, "order": ids, "time": time, "clock": clock, "phase": phase,
+		"lights": lights, "vsc": vsc, "vsc_t": vsc_t, "fastest": fastest.duplicate(),
+		"sc": [sc, sc_t, sc_s, sc_in],
+		"leader_finished_t": leader_finished_t, "yellow": yellow.duplicate(),
+		"wetness": wetness, "rain": rain, "tick": _tick,
+	}
+
+
+func restore(snap: Dictionary) -> void:
+	var cars: Array = snap.cars
+	for k in mini(cars.size(), entries.size()):
+		var e: Entry = entries[k]
+		var c: Array = cars[k]
+		e.sim.load_state(c[0])
+		var fields: Dictionary = c[1]
+		for key in fields:
+			var v = fields[key]
+			e.set(key, v.duplicate(true) if v is Array or v is Dictionary else v)
+		if e.ai and not (c[2] as Array).is_empty():
+			e.ai.offset = c[2][0]
+			e.ai.pit_phase = c[2][1]
+			e.ai.pit_request = c[2][2]
+		e.sim.limiter_on = c[3]
+		e.sim.drs_open = c[4]
+		e.input.clear()
+	var by_id := {}
+	for e in entries:
+		by_id[e.id] = e
+	order.clear()
+	for id in snap.order:
+		order.append(by_id[id])
+	time = snap.time
+	clock = snap.clock
+	phase = snap.phase
+	lights = snap.lights
+	vsc = snap.vsc
+	vsc_t = snap.vsc_t
+	sc = snap.sc[0]
+	sc_t = snap.sc[1]
+	sc_s = snap.sc[2]
+	sc_in = snap.sc[3]
+	fastest = snap.fastest.duplicate()
+	leader_finished_t = snap.leader_finished_t
+	yellow = snap.yellow.duplicate()
+	wetness = snap.wetness
+	rain = snap.rain
+	_tick = snap.tick
+	events.clear()
 
 
 ## Takes the events since the last call.
