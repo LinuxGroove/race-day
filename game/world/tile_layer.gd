@@ -6,6 +6,12 @@ extends RefCounted
 
 ## How wet each of the kit's materials gets (the road most, grass least).
 const WET := {"road": 1.0, "grey": 0.9, "white": 0.9, "red": 0.9, "grass": 0.25, "sand": 0.2}
+## The kit's materials in the world's colours, so tiles match generated
+## road and land.
+const COLOURS := {
+	"road": WorldLook.ROAD, "grey": WorldLook.LINE, "white": WorldLook.KERB_WHITE,
+	"red": WorldLook.KERB_RED, "grass": WorldLook.GRASS, "sand": WorldLook.SAND,
+}
 ## Borders and sand traps lie over the corner tiles' grass.
 const OVERLAY_LIFT := 0.02
 
@@ -41,7 +47,7 @@ static func merge(view: TrackView, tiles: Array, meshes: Array) -> Array:
 		var b: MeshBuf = bufs[clampi(spot.idx / RoadBuilder.CHUNK, 0, bufs.size() - 1)]
 		for part: Dictionary in PropKit.parts(ProvingGround.path(tile)):
 			var mask := float(WET.get(str(part.name), 0.5))
-			var col: Color = part.col
+			var col: Color = COLOURS.get(str(part.name), part.col)
 			b.append_arrays(part.arrays, xf * (part.xf as Transform3D), WorldLook.wet(col, mask))
 	var out := []
 	for b: MeshBuf in bufs:

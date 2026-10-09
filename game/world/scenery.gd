@@ -149,7 +149,11 @@ func vis(near: float) -> float:
 func _theme() -> void:
 	var t := view.theme()
 	var nk := PropKit.NATURE
-	var leafy := _models(nk, ["tree_default", "tree_oak", "tree_fat", "tree_simple", "tree_default_dark"], TREE_TINT)
+	# The oak is the costliest tree: only at high detail.
+	var leafy_names := ["tree_default", "tree_fat", "tree_simple", "tree_default_dark"]
+	if detail >= 2:
+		leafy_names.append("tree_oak")
+	var leafy := _models(nk, leafy_names, TREE_TINT)
 	var pines := _models(nk, ["tree_pineTallA", "tree_pineTallB", "tree_pineTallC", "tree_pineRoundD", "tree_pineTallD"], TREE_TINT)
 	var palms := _models(nk, ["tree_palmTall", "tree_palm", "tree_palmBend"], TREE_TINT)
 	var bushes := _models(nk, ["plant_bushLarge", "plant_bush"], TREE_TINT)
@@ -211,7 +215,7 @@ func _trees(models: Array, count: float, scale_range: Vector2, room: float, clum
 		if not is_free(p, room):
 			continue
 		var m: Mesh = models[rng.randi() % models.size()]
-		put(m, p, rng.randf() * TAU, rng.randf_range(scale_range.x, scale_range.y), vis(1100.0), 0.3)
+		put(m, p, rng.randf() * TAU, rng.randf_range(scale_range.x, scale_range.y), vis(1100.0), 0.3, detail > 0)
 		placed += 1
 
 

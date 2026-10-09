@@ -8,8 +8,9 @@ extends RefCounted
 ## wet at once (`set_wetness`), and night circuits can light it
 ## (`set_floodlight`).
 
-## The Racing Kit's colours after `PropKit.deepen`, as its tiles show them.
-const ROAD := Color("616161")
+## The Racing Kit's colours after `PropKit.deepen` (the road a little
+## lighter, so it reads at dusk); its tiles are drawn in these too.
+const ROAD := Color("6c6c71")
 const LINE := Color("f5f5f8")
 const KERB_RED := Color("e9605d")
 const KERB_WHITE := Color("f5f5f8")

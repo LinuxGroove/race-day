@@ -13,6 +13,7 @@ extends SceneTree
 ##                   top: straight down on the corners, with the simulation's
 ##                   road edges (yellow) and barriers (magenta) drawn over
 ##   --cars          puts a few cars on the grid for scale
+##   --breakdown     prints what each part of the view costs from the grid camera
 
 const Demos := preload("res://tools/world_demos.gd")
 
@@ -71,6 +72,8 @@ func _run() -> void:
 		_cars()
 	print("Built in %d ms: %s" % [t1 - t0, view.stats])
 	print("Counts: %s" % view.count())
+	if opts.has("breakdown"):
+		await _breakdown()
 	var shots := str(opts.get("shots", "grid,corner,chase,bird,pit,feature,night,rain")).split(",")
 	for shot in shots:
 		await _shot(shot)
@@ -163,9 +166,13 @@ func _shot(shot: String) -> void:
 			for l in track.landmarks:
 				var s := float(l.s)
 				var side := float(l.side)
-				var p := track.world(s, -side * 10.0, 6.0)
-				var to := track.world(s, side * (float(l.distance) + 20.0), 0.0)
-				_look(p + (p - to).normalized() * 40.0 + Vector3.UP * 20.0, to)
+				if float(l.distance) < 30.0:
+					# Over the track (the hotel): seen from the road before it.
+					_look(track.world(track.wrap_s(s - 140.0), 0.0, 6.0), track.world(s, 0.0, 12.0))
+				else:
+					var p := track.world(s, -side * 10.0, 6.0)
+					var to := track.world(s, side * (float(l.distance) + 20.0), 0.0)
+					_look(p + (p - to).normalized() * 40.0 + Vector3.UP * 20.0, to)
 				await _save("landmark_%d_%s" % [k, l.kind])
 				k += 1
 		"night":
@@ -206,6 +213,37 @@ func _shot(shot: String) -> void:
 			_look(track.world(track.wrap_s(-60.0), 0.0, 3.0), track.world(40.0, 0.0, 1.5))
 			await _save("rain_grid")
 			atmo.set_rain(0.0)
+
+
+## Draw calls and primitives from the grid camera with each part of the
+## view hidden in turn.
+func _breakdown() -> void:
+	_look(track.world(track.wrap_s(-60.0), 0.0, 3.0), track.world(40.0, 0.0, 1.5))
+	await _frames(4)
+	var base := _cost()
+	print("All: %s" % [base])
+	var parts := []
+	for ch in view.get_children():
+		parts.append(ch)
+		for g in ch.get_children():
+			if g.get_child_count() > 0 or g is MultiMeshInstance3D:
+				parts.append(g)
+	for node in parts:
+		if not node is Node3D:
+			continue
+		(node as Node3D).visible = false
+		await _frames(4)
+		var c := _cost()
+		(node as Node3D).visible = true
+		var what := str(view.get_path_to(node))
+		if node is MultiMeshInstance3D:
+			var mm := (node as MultiMeshInstance3D).multimesh
+			what = "%s %s x%d" % [node.get_parent().name, mm.mesh.resource_name, mm.instance_count]
+		print("  %-40s %4d calls %8d prims" % [what, base[0] - c[0], base[1] - c[1]])
+
+
+func _cost() -> Array:
+	return [int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))]
 
 
 ## The simulation's road edges and barriers as lines, for the top shots.

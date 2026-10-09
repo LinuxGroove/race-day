@@ -117,7 +117,8 @@ func _barriers() -> void:
 				anchor = p
 				anchor_s = i * track.step
 				continue
-			var seg := 4.0
+			# Longer pieces where the barrier runs straight: fewer copies.
+			var seg := 6.0 if absf(track.curv[i]) < 0.004 else 4.0
 			var d := anchor.distance_to(p)
 			if d < seg:
 				continue
@@ -144,7 +145,9 @@ func _seg(m: Mesh, mid: Vector3, yaw: float, length: float, sc: Vector3, side: i
 	var basis := b.scaled_local(Vector3(length * sc.x, sc.y, sc.z))
 	if side == 1:
 		basis = basis * Basis(Vector3.UP, PI)
-	scatter.add(m, Transform3D(basis, mid + out * back), vis(900.0), back == 0.0)
+	# Barriers are low and thin: their shadows aren't worth drawing them
+	# twice more.
+	scatter.add(m, Transform3D(basis, mid + out * back), vis(900.0), false)
 
 
 # --- Start gantry --------------------------------------------------------

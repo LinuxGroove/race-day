@@ -43,7 +43,7 @@ const SKIES := {
 ## energy, ambient colour and energy, fog colour and density, floodlights.
 const LOOKS := {
 	"day": {"elev": 50.0, "yaw": 149.0, "sun": Color(1.0, 0.97, 0.9), "sun_e": 1.25, "amb": Color(0.78, 0.84, 0.96), "amb_e": 0.75, "fog": Color(0.76, 0.84, 0.96), "fog_d": 0.00022, "flood": 0.0, "sky_e": 1.0},
-	"dusk": {"elev": 9.0, "yaw": 250.0, "sun": Color(1.0, 0.68, 0.42), "sun_e": 1.0, "amb": Color(0.86, 0.72, 0.74), "amb_e": 0.6, "fog": Color(0.93, 0.72, 0.62), "fog_d": 0.00028, "flood": 0.25, "sky_e": 1.0},
+	"dusk": {"elev": 15.0, "yaw": 250.0, "sun": Color(1.0, 0.7, 0.46), "sun_e": 1.2, "amb": Color(0.9, 0.8, 0.84), "amb_e": 1.15, "fog": Color(0.93, 0.72, 0.62), "fog_d": 0.00028, "flood": 0.25, "sky_e": 1.0},
 	"night": {"elev": 58.0, "yaw": 210.0, "sun": Color(0.92, 0.93, 1.0), "sun_e": 0.55, "amb": Color(0.52, 0.56, 0.72), "amb_e": 0.55, "fog": Color(0.08, 0.1, 0.18), "fog_d": 0.00035, "flood": 1.0, "sky_e": 0.9},
 }
 

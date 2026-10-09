@@ -40,6 +40,7 @@ static func mesh(path: String, centre := true, tint := Color.WHITE) -> ArrayMesh
 		shift = -Vector3(aabb.position.x + aabb.size.x * 0.5, aabb.position.y, aabb.position.z + aabb.size.z * 0.5)
 	var xf := Transform3D(Basis(), shift)
 	var m := ArrayMesh.new()
+	m.resource_name = path.get_file().get_basename()
 	var colour := MeshBuf.new()
 	var textured := {}
 	for p in parts:
