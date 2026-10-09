@@ -98,9 +98,22 @@ func drive(dt: float, frozen := false) -> void:
 	# Holding the brake when stopped selects reverse, to back out of trouble.
 	sim.allow_reverse = not frozen
 	var keyboard := not seat.has_pad() or LGInput.family == "keyboard"
-	var raw_steer := seat.strength("steer_right") - seat.strength("steer_left")
-	var raw_throttle := seat.strength("throttle")
-	var raw_brake := seat.strength("brake")
+	controls(dt, seat.strength("steer_right") - seat.strength("steer_left"), seat.strength("throttle"),
+		seat.strength("brake"), keyboard, frozen)
+	if frozen:
+		return
+	if not auto_gears:
+		input.shift_up = seat.just_pressed("shift_up")
+		input.shift_down = seat.just_pressed("shift_down")
+	input.drs = seat.held("drs")
+	input.limiter = seat.just_pressed("limiter")
+
+
+## Turns the raw wheel and pedals (steer -1 left to +1 right) into the car's
+## input through the assists. Tests drive this directly.
+func controls(dt: float, raw_steer: float, raw_throttle: float, raw_brake: float, keyboard: bool, frozen := false) -> void:
+	var input := entry.input
+	var sim := entry.sim
 	var v := absf(sim.forward_speed())
 	if keyboard:
 		# Keys are all or nothing: ramp the wheel and pedals like hands and
@@ -125,7 +138,7 @@ func drive(dt: float, frozen := false) -> void:
 		input.brake = 1.0
 		return
 	if steering_help:
-		input.steer = _steering_help(input.steer, v)
+		_steering_help(input, v)
 	if braking_help:
 		var want := _braking_help(v)
 		if want > input.brake:
@@ -135,11 +148,6 @@ func drive(dt: float, frozen := false) -> void:
 		input.brake = minf(input.brake, sim.brake_limit() * 1.02)
 	if tc and input.throttle > 0.0:
 		input.throttle = minf(input.throttle, sim.throttle_limit() * 1.04 + 0.02)
-	if not auto_gears:
-		input.shift_up = seat.just_pressed("shift_up")
-		input.shift_down = seat.just_pressed("shift_down")
-	input.drs = seat.held("drs")
-	input.limiter = seat.just_pressed("limiter")
 
 
 ## Rumble carries the kerbs, the grass and gravel, locked wheels and contact,
@@ -182,26 +190,29 @@ func stop_rumble() -> void:
 		Input.stop_joy_vibration(pad)
 
 
-## Steering help: no more lock than the front tyres can use, and a touch of
-## opposite lock when the rear steps out.
-func _steering_help(steer: float, v: float) -> float:
+## Steering help keeps the car pointing where the player steers. When the
+## rear tyres slide it gives the opposite lock a driver would (the front
+## wheels pointed where the car is going) and eases the throttle until they
+## grip; otherwise it gives no more lock than the front tyres can use, and
+## eases the throttle when asked for more, so the car slows into the corner
+## instead of running wide.
+func _steering_help(input: CarInput, v: float) -> void:
 	var sim := entry.sim
-	if v < 8.0:
-		return steer
-	# The steering angle that uses the front tyres' grip at this speed.
-	var spec := sim.spec
-	var wb := spec.cg_front + spec.cg_rear
-	var a_max := spec.grip * CarSpec.G * 1.2
-	var useful := atan(wb * a_max / (v * v)) * 1.25
-	var cap := clampf(useful / spec.steer_max, 0.15, 1.0)
-	var out := clampf(steer, -cap, cap)
-	# The car's slip: rotating faster than the steering asks for means the
-	# rear is going; steer into it.
-	var expected := v * tan(-sim.steer_angle) / wb
-	var excess := sim.yaw_rate - expected
-	if absf(excess) > 0.15:
-		out += clampf(excess * 0.35, -0.4, 0.4)
-	return clampf(out, -1.0, 1.0)
+	if v < 6.0 or sim.reverse:
+		return
+	var peak := sim.spec.peak_slip()
+	var most := sim.spec.steer_max
+	# The wheel angle with no slip at the front tyres.
+	var aim := atan2(sim.vel.dot(sim.left2()) + sim.spec.cg_front * sim.yaw_rate, v)
+	var slide := clampf((absf(sim.rear_slip()) - peak) / (peak * 0.6), 0.0, 1.0)
+	if slide > 0.0:
+		input.steer = clampf(lerpf(input.steer, -aim / most, slide * 0.85), -1.0, 1.0)
+		input.throttle *= 1.0 - slide * 0.7
+		return
+	var held := clampf(input.steer, -(aim + peak * 1.05) / most, -(aim - peak * 1.05) / most)
+	var wide := clampf(absf(input.steer - held) * most / (peak * 0.5), 0.0, 1.0)
+	input.throttle *= 1.0 - wide * 0.8
+	input.steer = held
 
 
 ## Braking help: how much brake keeps the car to the speed the next corners

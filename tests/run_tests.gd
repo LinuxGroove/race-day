@@ -27,7 +27,7 @@ func _ready() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Progress.save_path))
 	Progress.load_progress()
 	await get_tree().process_frame
-	for t in ["_test_circuits", "_test_teams", "_test_car_bodies", "_test_barriers", "_test_wheels_on_ground", "_test_weather", "_test_ghost", "_test_lap_reference",
+	for t in ["_test_circuits", "_test_teams", "_test_car_bodies", "_test_barriers", "_test_steering_help", "_test_wheels_on_ground", "_test_weather", "_test_ghost", "_test_lap_reference",
 			"_test_session_config", "_test_progress", "_test_snapshot", "_test_safety_car", "_test_net_pack",
 			"_test_school_stretches", "_test_menus", "_test_name_keyboard", "_test_race_scene", "_test_school_run", "_test_knockout", "_test_races"]:
 		if only != "" and t != only:
@@ -139,6 +139,34 @@ func _test_barriers() -> void:
 	check(worst < 0.05, "a car's corners stay inside the barrier (%.2f m past it)" % worst)
 	check(sim.wall_t < 2.0, "the car hit the barrier")
 	check(absf(rel) < start_rel - 0.2, "hitting the barrier nose first turns the car along it (%.2f rad)" % rel)
+
+
+## Steering help catches a car that snaps sideways at speed with the throttle
+## down, where the same car with no help spins.
+func _test_steering_help() -> void:
+	var t := Circuits.track(Circuits.ids()[0])
+	var s := 0.0
+	for i in t.n:
+		if absf(t.curv[i]) < 0.0005 and absf(t.curv[(i + 40) % t.n]) < 0.0005:
+			s = i * t.step
+			break
+	var worst := {}
+	for help in [false, true]:
+		var race := Race.new(t, Race.Kind.PRACTICE, 9, 1)
+		var e := race.add_car(1, "You", 0, 0)
+		var driver := PlayerDriver.new(LGSeat.primary(), e, race)
+		driver.overrides = {"steering_help": help, "braking_help": false, "abs": true, "tc": true}
+		driver.refresh()
+		e.sim.place_moving(s, 0.0, 45.0)
+		e.sim.yaw_rate = 1.4
+		var most := 0.0
+		for k in 300:
+			driver.controls(Race.DT, 0.0, 1.0, 0.0, false)
+			e.sim.step(Race.DT, e.input)
+			most = maxf(most, absf(wrapf(e.sim.yaw - t.heading_at(e.sim.spot.s), -PI, PI)))
+		worst[help] = most
+	check(worst[false] > 1.2, "a snap at speed spins the car with no help (%.2f rad)" % worst[false])
+	check(worst[true] < 0.8, "steering help catches it (%.2f rad)" % worst[true])
 
 
 ## Every tyre of a car sits on the road, crests, dips, banking and kerbs,
