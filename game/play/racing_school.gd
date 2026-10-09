@@ -16,7 +16,7 @@ const SEGMENT_MEDALS := [1.02, 1.06, 1.12]
 const LAP_MEDALS := [1.025, 1.06, 1.12]
 const PIT_MEDALS := [1.06, 1.15, 1.3]
 ## Overtake margins in metres ahead at the end: [gold, silver, bronze].
-const PASS_MEDALS := [30.0, 12.0, 0.0]
+const PASS_MEDALS := [70.0, 30.0, 0.0]
 
 const NO_HELP := {"braking_line": "off", "braking_help": false, "steering_help": false}
 const ALL_HELP := {"braking_line": "full", "braking_help": false, "steering_help": false, "abs": true, "tc": true, "gears": "auto"}
@@ -35,7 +35,7 @@ const TESTS := [
 		"assists": NO_HELP,
 		"brief": "One clean lap with no braking line and no help. Find your own braking points."},
 	{"id": "pass", "name": "Make a pass", "kind": "overtake", "circuit": "proving",
-		"where": "slowest", "lead": 520.0, "after": 260.0, "assists": ALL_HELP,
+		"where": "slowest", "lead": 600.0, "after": 300.0, "assists": ALL_HELP,
 		"brief": "Catch the car ahead and get past before the end. Use its slipstream, then brake later."},
 	{"id": "pit", "name": "A pit stop", "kind": "pit", "circuit": "greenfield",
 		"assists": {"pit": false, "braking_line": "corners"},
@@ -129,13 +129,13 @@ func begin(p_entry: Race.Entry) -> void:
 			length = span[1]
 			RacingSchool.place(entry, track, from_s, 0.92)
 			if str(test.kind) == "overtake":
-				rival = race.add_car(-1, "Rival", entry.team, 1, 0.86, {"code": "RIV", "consistency": 1.0, "spec_team": LapReference.TEAM})
+				rival = race.add_car(-1, "Rival", entry.team, 1, 0.8, {"code": "RIV", "consistency": 1.0, "spec_team": LapReference.TEAM})
 				rival.bot = true
-				RacingSchool.place(rival, track, track.wrap_s(from_s + 45.0), 0.92)
-				rival.s_total = entry.s_total + 45.0
+				RacingSchool.place(rival, track, track.wrap_s(from_s + 35.0), 0.92)
+				rival.s_total = entry.s_total + 35.0
 		"pit":
-			from_s = track.wrap_s(float(track.pit.entry) - 650.0)
-			length = 650.0 + track.delta_s(float(track.pit.entry), float(track.pit.exit)) + 150.0
+			from_s = RacingSchool.on_straight(track, track.wrap_s(float(track.pit.entry) - 650.0))
+			length = track.delta_s(from_s, float(track.pit.entry)) + track.delta_s(float(track.pit.entry), float(track.pit.exit)) + 150.0
 			RacingSchool.place(entry, track, from_s, 0.92)
 			entry.ai = null
 		"lap":
@@ -193,9 +193,19 @@ static func stretch(track: Track, t: Dictionary) -> Array:
 			last = (first + maxi(most, 1)) % cs.size()
 	var lead := float(t.get("lead", 300.0))
 	var after := float(t.get("after", 140.0))
-	var s0 := track.wrap_s(float(cs[first].start) - lead)
+	var s0 := RacingSchool.on_straight(track, track.wrap_s(float(cs[first].start) - lead))
 	var span := fposmod(float(cs[last].end) + after - s0, track.length)
 	return [s0, span]
+
+
+## A rolling start mustn't drop a car into the middle of a corner: a spot in
+## one moves on to just past its exit.
+static func on_straight(track: Track, s: float) -> float:
+	for c in track.corners:
+		var into := track.delta_s(float(c.start) - 40.0, s)
+		if into >= 0.0 and track.delta_s(s, float(c.end)) >= 0.0:
+			return track.wrap_s(float(c.end) + 80.0)
+	return s
 
 
 ## The AI's time for a test in the Time Trial car, worked out once.
@@ -219,8 +229,8 @@ static func reference_time(track: Track, t: Dictionary) -> float:
 			var s0 := 0.0
 			var span := 0.0
 			if str(t.kind) == "pit":
-				s0 = track.wrap_s(float(track.pit.entry) - 650.0)
-				span = 650.0 + track.delta_s(float(track.pit.entry), float(track.pit.exit)) + 150.0
+				s0 = on_straight(track, track.wrap_s(float(track.pit.entry) - 650.0))
+				span = track.delta_s(s0, float(track.pit.entry)) + track.delta_s(float(track.pit.entry), float(track.pit.exit)) + 150.0
 				e.ai.pit_request = true
 			else:
 				var st := stretch(track, t)
@@ -266,7 +276,8 @@ func tick(dt: float) -> void:
 				_finish(false, "Off the track: that lap doesn't count.")
 			return
 	elapsed += dt
-	if sim.wheels_out >= 4 and not sim.spot.in_pit:
+	# The pit test is about the stop: the pit road leaves the track.
+	if sim.wheels_out >= 4 and not sim.spot.in_pit and str(test.kind) != "pit":
 		_off = true
 		_finish(false, "Off the track. Keep two wheels on the road.")
 		return

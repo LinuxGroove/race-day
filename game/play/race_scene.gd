@@ -45,6 +45,7 @@ var over := false
 var world: Node3D
 var atmosphere: Node
 var track_view: Node3D
+var sounds: RaceSounds
 
 var _rng := RandomNumberGenerator.new()
 var _ref_lap := 0.0
@@ -64,6 +65,9 @@ func _ready() -> void:
 	info = Circuits.info(layout)
 	track = Circuits.track(layout)
 	_build_world()
+	RaceSounds.stop_music()
+	sounds = RaceSounds.new()
+	add_child(sounds)
 	_hud_layer = CanvasLayer.new()
 	_hud_layer.layer = 1
 	add_child(_hud_layer)
@@ -166,6 +170,10 @@ func _start_session() -> void:
 		_prepare_time_trial()
 	for v in views:
 		v.hud.session_started()
+	sounds.race = race
+	sounds.focus_ids = []
+	for p in players:
+		sounds.focus_ids.append(p.entry.id)
 	if net:
 		net.session_started()
 
@@ -191,12 +199,10 @@ func _sync_car_views() -> void:
 			v.name = "Car%d" % e.id
 			world.add_child(v)
 			car_views[e.id] = v
-			if ResourceLoader.exists("res://game/audio/car_audio.gd"):
-				var a: Node3D = load("res://game/audio/car_audio.gd").new()
-				v.add_child(a)
-				if a.has_method("setup"):
-					a.setup(e.sim.spec, not e.bot and e.peer == Session.local_id())
-				v.set_meta("audio", a)
+			var a := CarAudio.new()
+			v.add_child(a)
+			a.setup(e.sim.spec, not e.bot and e.peer == Session.local_id())
+			v.set_meta("audio", a)
 		var cv: CarView = car_views[e.id]
 		cv.visible = true
 		cv.follow(e.sim, 0.0)
@@ -239,6 +245,11 @@ func _build_views() -> void:
 		_hud_layer.add_child(pv)
 		views.append(pv)
 	_layout_views()
+	# Split screen: each player's camera hears the cars near it.
+	AudioBudget.listeners = []
+	if views.size() > 1:
+		for pv in views:
+			AudioBudget.listeners.append(pv.camera)
 
 
 func _layout_views() -> void:
@@ -273,9 +284,8 @@ func _physics_process(dt: float) -> void:
 		var cv: CarView = car_views.get(e.id)
 		if cv:
 			cv.follow(e.sim, Race.DT)
-			var a = (cv.get_meta("audio") if cv.has_meta("audio") else null)
-			if a and a.has_method("update"):
-				a.update(e.sim, e.input.throttle, Race.DT)
+			if cv.has_meta("audio"):
+				(cv.get_meta("audio") as CarAudio).update(e.sim, e.input.throttle, Race.DT)
 	if kind == Race.Kind.QUALIFYING:
 		_quali_tick(Race.DT)
 	if kind == Race.Kind.TIME_TRIAL:
@@ -284,6 +294,7 @@ func _physics_process(dt: float) -> void:
 		school.tick(Race.DT)
 	_rewind_tick(Race.DT)
 	var events := race.drain_events()
+	sounds.handle_events(events)
 	for ev in events:
 		_on_event(ev)
 		for v in views:
@@ -338,6 +349,11 @@ func on_pause_closed() -> void:
 
 func _on_event(ev: Dictionary) -> void:
 	match str(ev.type):
+		"contact":
+			for k in ["a", "b"]:
+				var cv: CarView = car_views.get(int(ev[k]))
+				if cv and cv.has_meta("audio"):
+					(cv.get_meta("audio") as CarAudio).hit(float(ev.speed))
 		"lap":
 			if kind == Race.Kind.TIME_TRIAL:
 				_time_trial_lap(ev)
@@ -668,3 +684,7 @@ func on_player_left(peer: int) -> void:
 			e.ai.pace = 0.95
 			e.ai.profile_grip = race.reference_grip()
 			e.ai.box_s = race.box_for(e.team)
+
+
+func _exit_tree() -> void:
+	AudioBudget.listeners = []

@@ -215,6 +215,8 @@ func _process(dt: float) -> void:
 			_radio_box.visible = false
 		else:
 			_radio.text = _radio_queue.pop_front()
+			if index == 0 and scene.sounds:
+				scene.sounds.radio()
 			_radio_box.visible = bool(LGSettings.get_value("hud", "radio"))
 			_radio_t = 3.6
 	if e.sim.wear > 0.7 and not _said.has("wear") and scene.kind == Race.Kind.RACE:

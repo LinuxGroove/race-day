@@ -54,8 +54,7 @@ func _ready() -> void:
 	LGScreenFit.center(_col)
 	Session.status.connect(_on_status)
 	Session.hosts_found.connect(_on_hosts)
-	if GameConfig.MENU_MUSIC != "":
-		LGAudio.play_music(GameConfig.MENU_MUSIC, -8.0)
+	RaceSounds.play_music("title")
 	if str(LGSettings.get_value("player", "name")).strip_edges() == "":
 		_show_name(true)
 		return

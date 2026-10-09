@@ -12,6 +12,7 @@ var school := {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	RaceSounds.play_music("results")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.03, 0.06, 0.78)

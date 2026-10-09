@@ -60,9 +60,8 @@ func attach(scene: RaceScene, p_driver: PlayerDriver, car: CarView) -> void:
 		scene.world.add_child(line)
 	line.setup(p_driver, LINE_LAYER + index)
 	hud.attach(scene, p_driver)
-	var a = (car.get_meta("audio") if car.has_meta("audio") else null)
-	if a and a.has_method("set_view"):
-		a.set_view(camera.view == "cockpit")
+	if car.has_meta("audio"):
+		(car.get_meta("audio") as CarAudio).set_view(camera.view == "cockpit")
 
 
 func next_camera() -> void:
@@ -72,9 +71,8 @@ func next_camera() -> void:
 	if index == 0:
 		LGSettings.set_value("camera", "view", v)
 	hud.show_camera_name(GameConfig.CAMERA_NAMES[v])
-	var a = (camera.car.get_meta("audio") if camera.car.has_meta("audio") else null) if camera.car else null
-	if a and a.has_method("set_view"):
-		a.set_view(v == "cockpit")
+	if camera.car and camera.car.has_meta("audio"):
+		(camera.car.get_meta("audio") as CarAudio).set_view(v == "cockpit")
 
 
 func _exit_tree() -> void:

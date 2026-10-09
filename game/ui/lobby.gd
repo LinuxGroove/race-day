@@ -93,6 +93,7 @@ func _ready() -> void:
 	Session.seats_changed.connect(_refresh_seats)
 	Session.status.connect(_on_status)
 	Session.left.connect(_on_left)
+	RaceSounds.play_music("paddock")
 	_refresh()
 	_refresh_seats()
 	if Session.is_host():

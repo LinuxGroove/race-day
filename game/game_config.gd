@@ -88,7 +88,6 @@ const SETTING_DEFAULTS := {
 	},
 }
 
-const MENU_MUSIC := ""
 
 ## Every in-game action, with keyboard and controller bindings (see LGInput).
 ## Each local player reads them through their own LGSeat.

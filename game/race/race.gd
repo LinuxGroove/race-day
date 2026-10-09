@@ -57,6 +57,8 @@ class Entry:
 	var next_compound := Tyres.HARD
 	var in_pit_lane := false
 	var pit_stop_t := 0.0
+	## Already stopped on this visit to the pit lane (one stop per visit).
+	var pit_served := false
 	var speeding := false
 	var drs_ok := false
 	var blue := false
@@ -575,6 +577,7 @@ func _pit(e: Entry, dt: float) -> void:
 	if in_lane and not e.in_pit_lane:
 		e.in_pit_lane = true
 		e.speeding = false
+		e.pit_served = false
 		_events("pit_in", {"id": e.id})
 	elif not in_lane and e.in_pit_lane and absf(track.delta_s(0.0, e.sim.spot.s) - float(track.pit.exit)) < 40.0:
 		e.in_pit_lane = false
@@ -601,6 +604,7 @@ func _pit(e: Entry, dt: float) -> void:
 			if not e.compounds.has(e.sim.compound):
 				e.compounds.append(e.sim.compound)
 			e.stops += 1
+			e.pit_served = true
 			e.next_compound = _second_compound(e.sim.compound)
 			_events("pit_done", {"id": e.id, "compound": e.sim.compound})
 			if e.ai:
@@ -610,7 +614,7 @@ func _pit(e: Entry, dt: float) -> void:
 	var box := box_for(e.team)
 	var to_box := absf(track.delta_s(e.sim.spot.s, box))
 	var box_lat := float(track.pit.box_lat) * float(track.pit.side)
-	if to_box < 3.0 and absf(e.sim.spot.lat - box_lat) < 3.0 and e.sim.speed < 1.0:
+	if to_box < 3.0 and absf(e.sim.spot.lat - box_lat) < 3.0 and e.sim.speed < 1.0 and not e.pit_served:
 		var wanted := e.ai == null or e.ai.pit_request
 		if wanted:
 			var t := BASE_STOP + rng.randf_range(0.0, 0.6)
