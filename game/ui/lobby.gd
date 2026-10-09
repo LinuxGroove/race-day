@@ -157,7 +157,8 @@ func _build_rules(body: HBoxContainer) -> void:
 		if key == "circuit":
 			options = []
 			for id in Circuits.ids():
-				options.append([id, str(Circuits.info(id).get("name", id))])
+				var ci := Circuits.info(id)
+				options.append([id, "%s %s" % [ci.get("name", id), ci.get("layout", "")]])
 		var c := LGCycler.make(row[1], options, Session.settings.get(key), _set_rule.bind(key), 520)
 		_cyclers[key] = c
 		box.add_child(c)
@@ -228,7 +229,7 @@ func _refresh() -> void:
 		_cyclers[key].set_read_only(not host)
 	var info := Circuits.info(str(Session.settings.get("circuit", "")))
 	var fill := maxi(0, int(Session.settings.get("grid", 20)) - Session.players.size())
-	_about.text = "%s\n\n%d AI drivers fill the grid." % [str(info.get("about", "")), fill]
+	_about.text = "%s\n\n%d AI drivers fill the grid." % [str(info.get("blurb", "")), fill]
 	_start.visible = host
 	_start.disabled = not Session.can_start()
 	var blocker := Session.start_blocker()

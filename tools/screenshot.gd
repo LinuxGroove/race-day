@@ -178,8 +178,8 @@ func _race_scene() -> RaceScene:
 
 func _layout(root: String, id: String) -> void:
 	var info := Circuits.info(id)
-	var folder := str(info.get("circuit", id))
-	var name := str(info.get("name", id))
+	var folder := str(info.get("venue", id))
+	var name := "%s, %s" % [info.get("name", id), info.get("layout", "")]
 	_lines.append_array(["## %s" % name, ""])
 	var scene := await _race(id)
 	var pv: PlayerView = scene.views[0]
