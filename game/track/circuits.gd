@@ -44,19 +44,12 @@ static func track(id: String) -> Track:
 static func plan(id: String) -> TrackPlan:
 	match id:
 		"proving":
-			return _proving()
+			return ProvingGround.plan()
 	push_error("No circuit %s" % id)
-	return _proving()
+	return ProvingGround.plan()
 
 
 static func _all() -> Array:
 	return [
 		{"id": "proving", "venue": "proving", "name": "The Proving Ground", "layout": "Test Loop", "round": 0, "theme": "proving", "time": "day", "rain": 0.0, "laps": 5, "blurb": "A quiet loop to learn the car."},
 	]
-
-
-static func _proving() -> TrackPlan:
-	var p := TrackPlan.new()
-	p.start_at = 300.0
-	p.straight(TrackPlan.AUTO).right(90, 60).straight(400).right(60, 120).left(60, 90).straight(TrackPlan.AUTO).right(90, 45).straight(600).right(90, 150).straight(900).right(90, 70)
-	return p
