@@ -591,7 +591,7 @@ func _pit(e: Entry, dt: float) -> void:
 		e.speeding = false
 		e.pit_served = false
 		_events("pit_in", {"id": e.id})
-	elif not in_lane and e.in_pit_lane and absf(track.delta_s(0.0, e.sim.spot.s) - float(track.pit.exit)) < 40.0:
+	elif not in_lane and e.in_pit_lane and (e.pit_served or absf(track.delta_s(0.0, e.sim.spot.s) - float(track.pit.exit)) < 150.0):
 		e.in_pit_lane = false
 		_events("pit_out", {"id": e.id})
 	elif not in_lane and e.in_pit_lane:

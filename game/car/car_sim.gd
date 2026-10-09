@@ -106,8 +106,9 @@ func place(s: float, lat: float, heading_offset := 0.0) -> void:
 	rpm = spec.rpm_idle
 	reverse = false
 	drs_open = false
+	# Start the search at s, so a crossover's other level never wins.
 	spot.idx = -1
-	track.locate(Vector2(pos.x, pos.z), -1, spot)
+	track.locate(Vector2(pos.x, pos.z), int(track.wrap_s(s) / track.step) % track.n, spot)
 
 
 ## Places the car at (s, lat) already moving at `v` m/s along the track.
