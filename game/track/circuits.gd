@@ -26,6 +26,15 @@ static func ids() -> PackedStringArray:
 	return out
 
 
+## The Grand Prix layouts in round order (the championship calendar).
+static func calendar() -> PackedStringArray:
+	var out := PackedStringArray()
+	for i in _all():
+		if int(i.round) > 0:
+			out.append(i.id)
+	return out
+
+
 static func info(id: String) -> Dictionary:
 	for i in _all():
 		if i.id == id:

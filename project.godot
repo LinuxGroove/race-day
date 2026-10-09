@@ -29,6 +29,8 @@ LGInput="*res://addons/linuxgroove/input/input_router.gd"
 LGScenes="*res://addons/linuxgroove/core/scene_switcher.gd"
 Nakama="*res://addons/com.heroiclabs.nakama/Nakama.gd"
 LGOnline="*res://addons/linuxgroove/online/online_service.gd"
+Session="*res://game/net/session.gd"
+Progress="*res://game/progress.gd"
 
 [display]
 

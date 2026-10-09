@@ -101,8 +101,13 @@ var entries: Array = []
 ## Entries in running order.
 var order: Array = []
 ## 0 dry to 1 soaked.
+## How wet the road is (0 dry to 1 soaked) and how hard it's raining now.
 var wetness := 0.0
 var rain := 0.0
+## The weather through the session: [[time in seconds, rain 0 to 1], ...],
+## from lights out (or the start of a non-race session).
+var forecast: Array = []
+var _wet_step := -1
 var damage := 2
 var tyre_wear := 1.0
 var vsc := false
@@ -114,6 +119,8 @@ var leader_finished_t := -1.0
 ## The only rules a client runs are its own car's physics: the host owns
 ## laps, flags and results (see apply_status).
 var authority := true
+## Keeps the cars on the grid until every device is ready (multiplayer).
+var hold_start := false
 ## [{type, ...}] for the HUD and sound; drained by the view each frame.
 var events: Array = []
 var rng := RandomNumberGenerator.new()
@@ -144,7 +151,8 @@ func add_car(id: int, name: String, team: int, slot: int, ai_pace := -1.0, opts 
 	e.team = team
 	e.number = int(opts.get("number", id))
 	e.bot = ai_pace >= 0.0
-	var spec := Teams.spec_for(team, opts.get("upgrades", {}))
+	# Time Trial puts everyone in the same car ("spec_team").
+	var spec := Teams.spec_for(int(opts.get("spec_team", team)), opts.get("upgrades", {}))
 	spec.apply_setup(opts.get("setup", CarSpec.PRESETS.balanced))
 	e.sim = CarSim.new(spec, track)
 	e.sim.compound = int(opts.get("compound", Tyres.MEDIUM if wetness < 0.3 else Tyres.INTER))
@@ -169,7 +177,7 @@ func add_car(id: int, name: String, team: int, slot: int, ai_pace := -1.0, opts 
 
 ## The car's speed profile along the line for a team in this weather.
 func speeds_for(team: int) -> PackedFloat32Array:
-	var key := "%d:%.2f" % [team, wetness]
+	var key := "%d:%.1f" % [team, wetness]
 	if not _speeds.has(key):
 		_speeds[key] = RacingLine.speeds(track, Teams.spec_for(team), reference_grip())
 	return _speeds[key]
@@ -177,7 +185,8 @@ func speeds_for(team: int) -> PackedFloat32Array:
 
 ## The tyre grip the AI's speed profiles are worked out for.
 func reference_grip() -> float:
-	return Tyres.grip(Tyres.MEDIUM if wetness < 0.3 else Tyres.INTER, wetness, 0.15, 1.0)
+	var w := snappedf(wetness, 0.1)
+	return Tyres.grip(Tyres.MEDIUM if w < 0.3 else Tyres.INTER, w, 0.15, 1.0)
 
 
 ## The pit box for a team, as a distance along the lap.
@@ -233,10 +242,22 @@ func entry(id: int) -> Entry:
 ## Advances the session by dt seconds (call with DT steps).
 func step(dt: float) -> void:
 	clock += dt
+	if not authority:
+		# Another device runs the rules: the phase, lights and timing arrive
+		# from there. This copy only drives its own cars.
+		if phase == Phase.RACING or phase == Phase.FINISHED:
+			time += dt
+		var waiting := phase == Phase.GRID or phase == Phase.LIGHTS
+		if waiting:
+			_hold_on_grid()
+		_drive_cars(dt, waiting)
+		if not waiting:
+			_contacts()
+		return
 	match phase:
 		Phase.GRID:
 			_hold_on_grid()
-			if clock > 2.0:
+			if clock > 2.0 and not hold_start:
 				phase = Phase.LIGHTS
 				_lights_t = 0.0
 		Phase.LIGHTS:
@@ -460,6 +481,7 @@ func _rules(dt: float) -> void:
 	if _tick % ORDER_EVERY == 0:
 		_update_order()
 	if _tick % 30 == 0:
+		_weather(dt * 30.0)
 		_flags(dt * 30.0)
 		_strategy()
 	_check_finish()
@@ -690,6 +712,35 @@ func _retirement(e: Entry, dt: float) -> void:
 		e.stalled_t = 0.0
 
 
+## Rain from the forecast wets the road; a dry line comes back slowly. The
+## AI's speeds follow the road in steps.
+func _weather(dt: float) -> void:
+	if forecast.is_empty():
+		return
+	var r := float(forecast[0][1])
+	for k in forecast.size():
+		if time >= float(forecast[k][0]):
+			r = float(forecast[k][1])
+			if k + 1 < forecast.size():
+				var t0 := float(forecast[k][0])
+				var t1 := float(forecast[k + 1][0])
+				r = lerpf(r, float(forecast[k + 1][1]), clampf((time - t0) / maxf(t1 - t0, 1.0), 0.0, 1.0))
+	if absf(r - rain) > 0.05 and (r > 0.1) != (rain > 0.1):
+		_events("rain", {"on": r > 0.1})
+	rain = r
+	if rain > wetness:
+		wetness = minf(rain, wetness + dt * (0.004 + rain * 0.01))
+	else:
+		wetness = maxf(rain, wetness - dt * 0.0025)
+	var step_now := int(roundf(wetness * 10.0))
+	if step_now != _wet_step:
+		_wet_step = step_now
+		for e in entries:
+			if e.ai:
+				e.ai.speeds = speeds_for(e.team)
+				e.ai.profile_grip = reference_grip()
+
+
 func _flags(dt: float) -> void:
 	if vsc:
 		vsc_t -= dt
@@ -895,11 +946,77 @@ func results() -> Array:
 
 func _events(type: String, data := {}) -> void:
 	var ev := data.duplicate()
-	ev.type = type
-	ev.t = time
+	ev["type"] = type
+	ev["t"] = time
 	events.append(ev)
 	if events.size() > 200:
 		events = events.slice(events.size() - 200)
+
+
+## Everything needed to go back to this moment (the rewind).
+func snapshot() -> Dictionary:
+	var cars := []
+	for e in entries:
+		var fields := {}
+		for prop in e.get_property_list():
+			if not (int(prop.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE):
+				continue
+			var key: String = prop.name
+			if key in ["sim", "input", "ai"]:
+				continue
+			var v = e.get(key)
+			fields[key] = v.duplicate(true) if v is Array or v is Dictionary else v
+		var ai := []
+		if e.ai:
+			ai = [e.ai.offset, e.ai.pit_phase, e.ai.pit_request]
+		cars.append([e.sim.save_state(), fields, ai, e.sim.limiter_on, e.sim.drs_open])
+	var ids := []
+	for e in order:
+		ids.append(e.id)
+	return {
+		"cars": cars, "order": ids, "time": time, "clock": clock, "phase": phase,
+		"lights": lights, "vsc": vsc, "vsc_t": vsc_t, "fastest": fastest.duplicate(),
+		"leader_finished_t": leader_finished_t, "yellow": yellow.duplicate(),
+		"wetness": wetness, "rain": rain, "tick": _tick,
+	}
+
+
+func restore(snap: Dictionary) -> void:
+	var cars: Array = snap.cars
+	for k in mini(cars.size(), entries.size()):
+		var e: Entry = entries[k]
+		var c: Array = cars[k]
+		e.sim.load_state(c[0])
+		var fields: Dictionary = c[1]
+		for key in fields:
+			var v = fields[key]
+			e.set(key, v.duplicate(true) if v is Array or v is Dictionary else v)
+		if e.ai and not (c[2] as Array).is_empty():
+			e.ai.offset = c[2][0]
+			e.ai.pit_phase = c[2][1]
+			e.ai.pit_request = c[2][2]
+		e.sim.limiter_on = c[3]
+		e.sim.drs_open = c[4]
+		e.input.clear()
+	var by_id := {}
+	for e in entries:
+		by_id[e.id] = e
+	order.clear()
+	for id in snap.order:
+		order.append(by_id[id])
+	time = snap.time
+	clock = snap.clock
+	phase = snap.phase
+	lights = snap.lights
+	vsc = snap.vsc
+	vsc_t = snap.vsc_t
+	fastest = snap.fastest.duplicate()
+	leader_finished_t = snap.leader_finished_t
+	yellow = snap.yellow.duplicate()
+	wetness = snap.wetness
+	rain = snap.rain
+	_tick = snap.tick
+	events.clear()
 
 
 ## Takes the events since the last call.
