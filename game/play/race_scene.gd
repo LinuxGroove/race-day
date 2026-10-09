@@ -171,6 +171,8 @@ func _start_session() -> void:
 	race.tyre_wear = float(config.get("tyre_wear", 1.0))
 	race.wetness = float(config.get("wet", 0.0))
 	race.forecast = config.get("forecast", [])
+	if not race.forecast.is_empty():
+		race.rain = float(race.forecast[0][1])
 	race.mandatory_compounds = laps >= 8 and kind == Race.Kind.RACE
 	race.drs_enabled = kind == Race.Kind.RACE
 	var drivers := _drivers_for_session()

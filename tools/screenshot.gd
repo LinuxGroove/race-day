@@ -10,7 +10,7 @@ extends Node
 ## JPEGs in folders with a README.md listing them:
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
-##   --resolution 1280x720 tools/screenshot.tscn -- --all=docs/screenshots [only=greenfield]
+##   --resolution 1280x720 tools/screenshot.tscn -- --all=docs/screenshots [only=greenfield|extras]
 
 var _args := {}
 
@@ -104,8 +104,9 @@ func _all(dir: String, only: String) -> void:
 		if only != "" and not id.begins_with(only):
 			continue
 		await _layout(root, id)
-	if only == "":
+	if only == "" or only == "extras":
 		await _extras(root)
+	if only == "":
 		var f := FileAccess.open(root.path_join("README.md"), FileAccess.WRITE)
 		f.store_string("\n".join(_lines) + "\n")
 	get_tree().quit()
@@ -246,6 +247,10 @@ func _extras(root: String) -> void:
 	_lines.append_array(["## Race screens", ""])
 	var id := "greenfield" if not Circuits.info("greenfield").is_empty() else str(Circuits.ids()[0])
 	var scene := await _race(id, {"weather": "wet"})
+	# A proper downpour, so the rain shows.
+	scene.race.forecast = [[0.0, 0.95]]
+	scene.race.rain = 0.95
+	scene.race.wetness = 0.95
 	while scene.race.phase != Race.Phase.RACING or scene.race.time < 12.0:
 		await get_tree().process_frame
 	await _shot(root, "race", "rain", "Racing in the rain")
@@ -256,8 +261,18 @@ func _extras(root: String) -> void:
 	await _wait(0.6)
 	await _shot(root, "race", "setup", "Car setup")
 	scene.toggle_pause()
-	scene._show_results(scene.race.results(), false)
-	await _wait(0.6)
+	# A one-lap race, run on ahead without drawing, for real results.
+	scene.race.laps = 1
+	while not scene.race.is_over():
+		for k in 600:
+			if scene.race.is_over():
+				break
+			scene.race.step(Race.DT)
+		scene.race.drain_events()
+		await get_tree().process_frame
+	while not scene._results_shown:
+		await get_tree().process_frame
+	await _wait(1.0)
 	await _shot(root, "race", "results", "Race results")
 	scene = await _race(id, {"split": true})
 	while scene.race.phase != Race.Phase.RACING or scene.race.time < 10.0:
