@@ -21,6 +21,15 @@ config/icon="res://icon.svg"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="race-day"
 
+[autoload]
+
+LGSettings="*res://addons/linuxgroove/core/settings.gd"
+LGAudio="*res://addons/linuxgroove/core/audio_director.gd"
+LGInput="*res://addons/linuxgroove/input/input_router.gd"
+LGScenes="*res://addons/linuxgroove/core/scene_switcher.gd"
+Nakama="*res://addons/com.heroiclabs.nakama/Nakama.gd"
+LGOnline="*res://addons/linuxgroove/online/online_service.gd"
+
 [display]
 
 window/size/viewport_width=1280

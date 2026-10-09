@@ -33,8 +33,22 @@ var corner_outside := {"kind": Runoff.GRAVEL, "width": 26.0, "barrier": Barrier.
 var kerb_radius := 320.0
 ## The pieces: {"kind": "line"/"arc", "length", "angle" (radians, + left),
 ## "radius", "climb", "bank" (degrees, + raises the outside), "width",
-## "left", "right" (edge overrides)}.
+## "left", "right" (edge overrides), "feature" (see FEATURES)}.
 var pieces: Array = []
+## Scenery beside the track, placed with mark(): {"kind", "piece" (it sits at
+## the end of this many pieces), "side" (1 left, -1 right), "distance" (metres
+## from the centreline), "size" (metres), plus anything the kind needs}.
+var landmarks: Array = []
+
+## What a piece can be, for the view: "tunnel" (roofed), "bridge" (over water
+## or a road), "over" and "under" (the two halves of a crossover).
+const FEATURES := ["tunnel", "bridge", "over", "under"]
+## Landmark kinds the view knows how to build.
+const LANDMARKS := [
+	"grandstand", "lake", "sea", "river", "buildings", "hangars", "hotel",
+	"forest", "cliff", "rock_wall", "marina", "farm", "dunes", "hills",
+	"lighthouse", "village", "pits_tower", "big_screen", "windmills",
+]
 
 
 ## A straight of `length` metres (or AUTO).
@@ -83,6 +97,15 @@ func _arc(angle: float, radius: float, opts: Dictionary) -> TrackPlan:
 	var p := {"kind": "arc", "length": absf(angle) * radius, "angle": angle, "radius": radius}
 	p.merge(opts)
 	pieces.append(p)
+	return self
+
+
+## Puts a landmark beside the track where the plan has reached so far.
+## `opts` holds "side", "distance", "size" and anything the kind needs.
+func mark(kind: String, opts := {}) -> TrackPlan:
+	var l := {"kind": kind, "piece": pieces.size(), "side": 1, "distance": 60.0, "size": 80.0}
+	l.merge(opts, true)
+	landmarks.append(l)
 	return self
 
 

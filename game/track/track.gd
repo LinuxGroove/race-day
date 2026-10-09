@@ -67,6 +67,11 @@ var sectors := [0.0, 0.0]
 ## the s values as distances along the lap (entry and limit_in are negative,
 ## before the line).
 var pit := {}
+## Stretches with a feature (TrackPlan.FEATURES): [{"kind", "from", "to"}],
+## with from and to as distances along the lap (to may wrap past from).
+var features: Array = []
+## The plan's landmarks with "s" (distance along the lap) worked out.
+var landmarks: Array = []
 ## Grid slots behind the line: [{"s", "lat"}], pole first.
 var grid: Array = []
 var bounds := AABB()
@@ -369,6 +374,7 @@ func _build() -> void:
 		tangent[i] = t
 		normal[i] = Vector2(t.y, -t.x)
 	_curvature()
+	_place_features(pieces, shift * step)
 	_hash_samples()
 	_bounds()
 	_pit_lane()
@@ -550,6 +556,42 @@ func _sample(pieces: Array) -> Dictionary:
 	out.w = ws
 	out.b = bs
 	return out
+
+
+func _place_features(pieces: Array, start: float) -> void:
+	features.clear()
+	landmarks.clear()
+	var acc := 0.0
+	var ends := []
+	for pc in pieces:
+		if pc.has("feature"):
+			features.append({"kind": pc.feature, "from": wrap_s(acc - start), "to": wrap_s(acc + float(pc.length) - start)})
+		acc += float(pc.length)
+		ends.append(acc)
+	# Neighbouring pieces with the same feature make one stretch.
+	var joined := []
+	for f in features:
+		if not joined.is_empty() and joined[-1].kind == f.kind and absf(delta_s(float(joined[-1].to), float(f.from))) < 1.0:
+			joined[-1].to = f.to
+		else:
+			joined.append(f)
+	if joined.size() > 1 and joined[0].kind == joined[-1].kind and absf(delta_s(float(joined[-1].to), float(joined[0].from))) < 1.0:
+		joined[0].from = joined[-1].from
+		joined.pop_back()
+	features = joined
+	for l in plan.landmarks:
+		var m: Dictionary = l.duplicate(true)
+		var k := int(m.piece)
+		m["s"] = wrap_s((float(ends[k - 1]) if k > 0 else 0.0) - start)
+		landmarks.append(m)
+
+
+## The feature at distance s ("" for none).
+func feature_at(s: float) -> String:
+	for f in features:
+		if fposmod(s - float(f.from), length) <= fposmod(float(f.to) - float(f.from), length):
+			return f.kind
+	return ""
 
 
 func _piece_at(pieces: Array, piece_start: Array, s: float) -> int:
