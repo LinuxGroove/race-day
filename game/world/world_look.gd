@@ -1,0 +1,193 @@
+class_name WorldLook
+extends RefCounted
+## The world's colours and shared materials. Track surfaces use the Racing
+## Kit's own colours (its road, white, red, grass and sand materials), so
+## generated road and the kit's tiles match.
+##
+## Everything on the ground shares one material, so the rain can make it all
+## wet at once (`set_wetness`), and night circuits can light it
+## (`set_floodlight`).
+
+const ROAD := Color("8d8d8d")
+const LINE := Color("f9f9fb")
+const KERB_RED := Color("e8625e")
+const KERB_WHITE := Color("f9f9fb")
+const GRASS := Color("95c5af")
+const GRASS_DARK := Color("88bba2")
+const GRAVEL := Color("e5ddc9")
+const SAND := Color("ecc98a")
+const TARMAC := Color("a3a9b6")
+const PIT_ROAD := Color("8a8a90")
+const CONCRETE := Color("dcdde3")
+const WALL_TOP := Color("e8625e")
+const DECK := Color("b9bcc6")
+const DRS_LINE := Color("f9f9fb")
+const BOX_LINE := Color("f5d24a")
+const WATER := Color("5fa3c9")
+
+## Terrain colours per theme: [near the track, further out].
+const TERRAIN := {
+	"parkland": [Color("8fc49a"), Color("7fb68b")],
+	"harbour": [Color("9ccaa8"), Color("c9c3b3")],
+	"forest": [Color("7fb488"), Color("6fa57a")],
+	"airfield": [Color("a8c98e"), Color("9cbf84")],
+	"desert": [Color("e6c58e"), Color("dcb57c")],
+	"city": [Color("a9c79f"), Color("b6b8bf")],
+	"mountain": [Color("98bf8c"), Color("a7a394")],
+	"lake": [Color("8fc49a"), Color("80b88d")],
+	"countryside": [Color("a3cc8b"), Color("b8cf7e")],
+	"oval": [Color("95c49a"), Color("8cba90")],
+	"cliff": [Color("9fc98f"), Color("b5b49b")],
+	"hills": [Color("8cc08f"), Color("79b083")],
+	"canyon": [Color("d99a6c"), Color("c98458")],
+	"proving": [Color("95c5af"), Color("8bbca5")],
+}
+
+const GROUND_SHADER := """
+shader_type spatial;
+render_mode cull_back, depth_draw_opaque;
+
+uniform float wetness : hint_range(0.0, 1.0) = 0.0;
+uniform float floodlight : hint_range(0.0, 2.0) = 0.0;
+uniform vec3 flood_color : source_color = vec3(1.0, 0.95, 0.85);
+uniform float tint : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 tint_color : source_color = vec3(1.0);
+
+varying float wet_mask;
+
+void vertex() {
+	wet_mask = COLOR.a;
+}
+
+vec3 to_linear(vec3 c) {
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
+
+void fragment() {
+	vec3 base = to_linear(COLOR.rgb);
+	base = mix(base, base * tint_color, tint);
+	float w = clamp(wetness * wet_mask, 0.0, 1.0);
+	ALBEDO = base * (1.0 - 0.42 * w);
+	ROUGHNESS = mix(0.93, 0.16, w);
+	SPECULAR = mix(0.25, 0.75, w);
+	// Night circuits: the floodlights light everything near the track.
+	EMISSION = base * flood_color * floodlight * 0.32 * (1.0 - 0.3 * w);
+}
+"""
+
+const WATER_SHADER := """
+shader_type spatial;
+render_mode cull_disabled, depth_draw_opaque;
+
+uniform vec3 color : source_color = vec3(0.37, 0.64, 0.79);
+uniform vec3 deep : source_color = vec3(0.22, 0.45, 0.66);
+uniform float glow : hint_range(0.0, 1.0) = 0.0;
+
+float wave(vec2 p, float t) {
+	return sin(p.x * 0.11 + t * 0.9) * 0.5 + sin(p.y * 0.07 - t * 0.7) * 0.5 + sin((p.x + p.y) * 0.19 + t * 1.3) * 0.25;
+}
+
+void fragment() {
+	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float t = TIME;
+	float e = 0.6;
+	float dx = wave(wp.xz + vec2(e, 0.0), t) - wave(wp.xz - vec2(e, 0.0), t);
+	float dz = wave(wp.xz + vec2(0.0, e), t) - wave(wp.xz - vec2(0.0, e), t);
+	vec3 nw = normalize(vec3(-dx * 0.35, 1.0, -dz * 0.35));
+	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	float f = clamp(wave(wp.xz * 0.3, t * 0.5) * 0.5 + 0.5, 0.0, 1.0);
+	ALBEDO = mix(deep, color, f * 0.6 + 0.2);
+	ROUGHNESS = 0.08;
+	SPECULAR = 0.6;
+	EMISSION = color * glow * 0.15;
+}
+"""
+
+static var _ground: ShaderMaterial
+static var _props: StandardMaterial3D
+static var _water: ShaderMaterial
+static var _glow := {}
+static var _flat := {}
+
+
+## The one material every ground mesh (road, run-off, terrain) uses.
+static func ground() -> ShaderMaterial:
+	if _ground == null:
+		var sh := Shader.new()
+		sh.code = GROUND_SHADER
+		_ground = ShaderMaterial.new()
+		_ground.shader = sh
+	return _ground
+
+
+## Vertex-coloured props (the Racing Kit and Nature Kit's flat colours).
+static func props() -> StandardMaterial3D:
+	if _props == null:
+		_props = StandardMaterial3D.new()
+		_props.vertex_color_use_as_albedo = true
+		_props.vertex_color_is_srgb = true
+		_props.roughness = 0.85
+	return _props
+
+
+static func water() -> ShaderMaterial:
+	if _water == null:
+		var sh := Shader.new()
+		sh.code = WATER_SHADER
+		_water = ShaderMaterial.new()
+		_water.shader = sh
+	return _water
+
+
+## A plain colour that glows (lamps, screens, windows at night).
+static func glow(col: Color, energy := 2.0) -> StandardMaterial3D:
+	var key := "%s/%.2f" % [col.to_html(), energy]
+	if not _glow.has(key):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = col
+		m.emission_enabled = true
+		m.emission = col
+		m.emission_energy_multiplier = energy
+		m.roughness = 0.6
+		_glow[key] = m
+	return _glow[key]
+
+
+## A plain lit colour.
+static func flat(col: Color, rough := 0.8) -> StandardMaterial3D:
+	var key := "%s/%.2f" % [col.to_html(), rough]
+	if not _flat.has(key):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = col
+		m.roughness = rough
+		_flat[key] = m
+	return _flat[key]
+
+
+## Rain: 0 dry, 1 soaked. Darkens and glosses the road.
+static func set_wetness(w: float) -> void:
+	ground().set_shader_parameter("wetness", clampf(w, 0.0, 1.0))
+
+
+## Night: how strongly the floodlights light the ground (0 for day).
+static func set_floodlight(f: float, col := Color(1.0, 0.95, 0.85)) -> void:
+	ground().set_shader_parameter("floodlight", f)
+	ground().set_shader_parameter("flood_color", col)
+	water().set_shader_parameter("glow", clampf(f, 0.0, 1.0))
+
+
+## Colour with a wetness mask in alpha.
+static func wet(col: Color, mask: float) -> Color:
+	return Color(col.r, col.g, col.b, mask)
+
+
+## The run-off colour for a TrackPlan.Runoff kind.
+static func runoff(kind: int) -> Color:
+	match kind:
+		TrackPlan.Runoff.GRAVEL:
+			return wet(GRAVEL, 0.3)
+		TrackPlan.Runoff.TARMAC, TrackPlan.Runoff.WALL:
+			return wet(TARMAC, 0.95)
+		TrackPlan.Runoff.SAND:
+			return wet(SAND, 0.2)
+	return wet(GRASS, 0.25)
