@@ -21,7 +21,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_container = SubViewportContainer.new()
 	_container.stretch = true
-	_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_container)
 	_viewport = SubViewport.new()
@@ -41,7 +41,7 @@ func _ready() -> void:
 	hud = RaceHud.new()
 	hud.index = index
 	hud.split = count > 1
-	hud.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(hud)
 
 

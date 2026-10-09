@@ -50,7 +50,8 @@ var _font_scale := 1.0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_font_scale = 0.8 if split else 1.0
-	_show_tower = bool(LGSettings.get_value("hud", "tower"))
+	# Half a screen has no room for the tower beside the map: Tab shows it.
+	_show_tower = bool(LGSettings.get_value("hud", "tower")) and not split
 	# Top left: position and lap.
 	var tl := _panel(Vector2(16, 14), Control.PRESET_TOP_LEFT)
 	var col := VBoxContainer.new()
@@ -354,7 +355,10 @@ func _update_tower(race: Race, e: Race.Entry) -> void:
 func _update_flags(race: Race, e: Race.Entry) -> void:
 	var text := ""
 	var col := Color(0, 0, 0, 0)
-	if race.vsc:
+	if race.sc:
+		text = "SAFETY CAR IN THIS LAP" if race.sc_in else "SAFETY CAR"
+		col = WARN
+	elif race.vsc:
 		text = "VIRTUAL SAFETY CAR"
 		col = WARN
 	elif e.blue:
@@ -418,6 +422,13 @@ func on_event(ev: Dictionary) -> void:
 				_toast_t = 1.0
 		"vsc":
 			_say("Virtual safety car. Slow down and hold position." if bool(ev.on) else "VSC ending. Be ready to go.")
+		"sc":
+			if bool(ev.on) and bool(ev.get("in", false)):
+				_say("Safety car in this lap. Get ready for the restart.")
+			elif bool(ev.on):
+				_say("Safety car, safety car. No overtaking. Close up to the car in front.")
+			else:
+				_say("Green flag! Go, go, go!")
 		"blue":
 			if mine:
 				_say("Blue flags. Let the leaders through.")

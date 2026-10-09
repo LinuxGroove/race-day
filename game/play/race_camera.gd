@@ -47,7 +47,8 @@ func set_view(v: String) -> void:
 
 
 func _process(dt: float) -> void:
-	if car == null or sim == null or not is_instance_valid(car):
+	# "free": something else (a screenshot tool, a replay) places the camera.
+	if view == "free" or car == null or sim == null or not is_instance_valid(car):
 		return
 	var xf := car.get_global_transform_interpolated()
 	var base_fov := float(LGSettings.get_value("camera", "fov"))

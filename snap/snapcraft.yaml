@@ -2,21 +2,23 @@ name: race-day
 title: "Race Day"
 adopt-info: race-day
 base: core24
-summary: A 3D platformer in the sky. Explore every island, then race through it.
+summary: Grand prix racing in a bright low-poly world. Qualify, pit, win.
 description: |
-  Race Day is a 3D platformer across a chain of floating islands.
-  Run, jump, long jump, dive, ground pound and kick off walls to find stars
-  and hidden gems, then race the courses against the clock and your own
-  ghost.
+  Race Day is a grand prix racing game: twenty cars, sixteen circuits and
+  five red lights. Learn the braking points, put it on pole, choose your
+  tyres, make your pit stop count and bring it home.
 
-  - Adventure: explore each island at your own pace, help the islanders and
-    open the Skyway's rainbow bridges with the stars you find
-  - Speedrun: every course Adventure finds is a time trial with medals, a
-    clock to the hundredth and your best run's ghost beside you
-  - A calm camera that sits behind and above and turns gently, with comfort
-    settings for turn speed, field of view and a follow-behind mode
-  - Made for controllers and handhelds, fully playable with a mouse and
-    keyboard
+  - Championship and Career: a full season, or several, starting with the
+    slowest team on the grid
+  - Quick Race, Time Trial with ghosts and medals, and the Racing School
+  - Qualifying, tyres, pit stops, DRS, flags, the safety car and penalties
+  - Assists that come off one at a time: the braking line, braking and
+    steering help, ABS, traction control, gears, the pit stop and rewind
+  - Cockpit, T-cam and two chase cameras, with comfort settings: a level
+    horizon and no shake by default
+  - Split screen for two, and races for up to eight over the local network
+    or online, with AI drivers filling the grid
+  - Made for controllers and handhelds, fully playable with a keyboard
 icon: icon.png
 grade: stable
 confinement: strict

@@ -16,7 +16,7 @@ defaults:
 
 jobs:
   test:
-    name: Godot checks, tests and a bot run of Saw Mill Sprint
+    name: Godot checks, tests and two whole AI races
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

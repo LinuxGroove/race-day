@@ -25,7 +25,7 @@ Build locally with `snapcraft pack`.
 
 | Workflow | When | What |
 |---|---|---|
-| CI (`.github/workflows/ci.yml`) | Every push to `main` and every pull request | Imports the project, checks every script compiles, runs the tests (including two bot runs of Saw Mill Sprint) |
+| CI (`.github/workflows/ci.yml`) | Every push to `main` and every pull request | Imports the project, checks every script compiles, runs the tests (including two whole AI races) |
 | Snap (`.github/workflows/snap.yml`) | Every push to `main`, every pull request, and published releases | Builds the snap on amd64 and arm64 runners and uploads each as an artifact. Pushes to `main` go to the store's edge channel and releases to candidate, using the `STORE_LOGIN` secret |
 | Windows and macOS (`.github/workflows/desktop.yml`) | Pushes to `main` and releases | Exports a single `.exe` and a universal, ad-hoc signed `.app`, zipped with the license and credits |
 | Release (`.github/workflows/release.yml`) | Run by hand | Tags the next `vYYYY.WW.MINOR` and publishes a release with notes from `tools/release.sh` |

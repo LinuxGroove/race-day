@@ -188,8 +188,11 @@ func start_career(laps: int, difficulty: float) -> void:
 
 
 func _new_season(c: Dictionary) -> Dictionary:
+	var cal := Array(Circuits.calendar())
+	if cal.is_empty():
+		cal = Array(Circuits.ids())
 	return {
-		"calendar": Array(Circuits.calendar()), "round": 0, "laps": int(c.laps),
+		"calendar": cal, "round": 0, "laps": int(c.laps),
 		"difficulty": float(c.difficulty), "qualifying": "one_lap", "standings": {},
 		"team_points": {}, "names": {}, "results": [], "seed": randi(),
 	}

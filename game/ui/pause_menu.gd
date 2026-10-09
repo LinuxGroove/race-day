@@ -15,13 +15,13 @@ var _col: VBoxContainer
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	var center := CenterContainer.new()

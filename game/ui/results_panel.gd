@@ -13,13 +13,13 @@ var school := {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	RaceSounds.play_music("results")
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.03, 0.06, 0.78)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)

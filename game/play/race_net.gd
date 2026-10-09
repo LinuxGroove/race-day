@@ -163,7 +163,7 @@ func _send_timing() -> void:
 			e.laps_down, e.finished, e.retired, e.in_pit_lane, e.pit_stop_t, e.penalty, e.s_total,
 			e.lap_valid, e.drs_ok, e.blue, e.finish_time, e.stops, e.points, e.cleared, e.start_position])
 	var state := [race.phase, race.time, race.lights, race.vsc, race.yellow, race.wetness, race.rain,
-		race.leader_finished_t, race.fastest]
+		race.leader_finished_t, race.fastest, race.sc, race.sc_s, race.sc_in]
 	for peer in multiplayer.get_peers():
 		if Session.loaded_peers.has(peer):
 			_h_timing.rpc_id(peer, state, rows)
@@ -211,6 +211,9 @@ func _h_timing(state: Array, rows: Array) -> void:
 	race.rain = state[6]
 	race.leader_finished_t = state[7]
 	race.fastest = state[8]
+	race.sc = state[9]
+	race.sc_s = state[10]
+	race.sc_in = state[11]
 	for r in rows:
 		var e := race.entry(int(r[0]))
 		if e == null:

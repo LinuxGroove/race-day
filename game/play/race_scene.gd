@@ -46,6 +46,9 @@ var world: Node3D
 var atmosphere: Node
 var track_view: Node3D
 var sounds: RaceSounds
+var safety_car: Node3D
+var _sc_lights: Array = []
+var _sc_blink := 0.0
 
 var _rng := RandomNumberGenerator.new()
 var _ref_lap := 0.0
@@ -311,6 +314,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_dt: float) -> void:
+	_show_safety_car(_dt)
 	for i in players.size():
 		var p: PlayerDriver = players[i]
 		if i >= views.size():
@@ -613,6 +617,44 @@ func _time_trial_lap(ev: Dictionary) -> void:
 
 func medals() -> Array:
 	return LapReference.medals(track)
+
+
+# --- The safety car ---------------------------------------------------------
+
+func _show_safety_car(dt: float) -> void:
+	if race == null or not race.sc:
+		if safety_car:
+			safety_car.visible = false
+		return
+	if safety_car == null:
+		safety_car = Node3D.new()
+		safety_car.name = "SafetyCar"
+		var body: Node3D = load("res://assets/kenney/car-kit/sedan-sports.glb").instantiate()
+		body.scale = Vector3.ONE * 2.1
+		safety_car.add_child(body)
+		for side in [-1.0, 1.0]:
+			var light := MeshInstance3D.new()
+			var box := BoxMesh.new()
+			box.size = Vector3(0.7, 0.18, 0.3)
+			light.mesh = box
+			light.position = Vector3(side * 0.4, 2.05, -0.3)
+			var m := StandardMaterial3D.new()
+			m.albedo_color = Color("ffb21f")
+			m.emission_enabled = true
+			m.emission = Color("ffb21f")
+			light.material_override = m
+			safety_car.add_child(light)
+			_sc_lights.append(m)
+		world.add_child(safety_car)
+	safety_car.visible = true
+	var s := race.safety_car_s()
+	var lat := track.value_at(track.line_off, s)
+	var p := track.world(s, lat)
+	safety_car.global_transform = Transform3D(Basis(Vector3.UP, track.heading_at(s)), p)
+	_sc_blink += dt
+	for k in _sc_lights.size():
+		var on := int(_sc_blink * 3.0) % 2 == k
+		(_sc_lights[k] as StandardMaterial3D).emission_energy_multiplier = 3.0 if on else 0.0
 
 
 # --- Racing School -----------------------------------------------------
