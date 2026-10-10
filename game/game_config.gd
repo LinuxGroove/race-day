@@ -4,6 +4,14 @@ extends RefCounted
 ## input map.
 
 const GAME_ID := "race-day"
+
+## This round's own questions at the end of a play test (LGPlaytest), on top
+## of the standard ones, and standard ones that don't fit the game. Change
+## them for each round of play testing.
+const PLAYTEST := {
+	"skip": ["story"],
+	"questions": [],
+}
 const TITLE := "Race Day"
 ## Bump PROTOCOL whenever network messages change; mismatched builds are told
 ## to update instead of desyncing.

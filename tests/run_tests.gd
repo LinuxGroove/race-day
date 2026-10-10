@@ -29,7 +29,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	for t in ["_test_circuits", "_test_teams", "_test_car_bodies", "_test_barriers", "_test_steering_help", "_test_wheels_on_ground", "_test_weather", "_test_ghost", "_test_lap_reference",
 			"_test_session_config", "_test_progress", "_test_snapshot", "_test_safety_car", "_test_net_pack",
-			"_test_school_stretches", "_test_menus", "_test_name_keyboard", "_test_race_scene", "_test_school_run", "_test_knockout", "_test_races"]:
+			"_test_school_stretches", "_test_menus", "_test_name_keyboard", "_test_playtest", "_test_race_scene", "_test_school_run", "_test_knockout", "_test_races"]:
 		if only != "" and t != only:
 			continue
 		printerr("- ", t)
@@ -571,3 +571,38 @@ func _test_races() -> void:
 			pts += int(r.points)
 		check(pts >= 101 and pts <= 102, "%s: the points add up (%d)" % [id, pts])
 		await get_tree().process_frame
+
+
+## Play test recording: main sets it up, quitting ends it first, and a
+## session packs into one zip with its events and answers.
+func _test_playtest() -> void:
+	check((load("res://game/main.gd") as GDScript).source_code.contains("LGPlaytest.setup(GameConfig.GAME_ID, GameConfig.PLAYTEST)"), "main sets up play test recording")
+	check((load("res://game/ui/title.gd") as GDScript).source_code.contains("LGScenes.quit"), "quitting from the title ends a play test first")
+	var dir := "user://test_playtest"
+	LGPlaytestPack._remove(dir)
+	var p := LGPlaytest.setup(GameConfig.GAME_ID, GameConfig.PLAYTEST)
+	p.dir = dir
+	await get_tree().process_frame
+	p.begin()
+	check(LGPlaytest.recording(), "a play test records")
+	LGPlaytest.event("test", {"at": Vector2(1, 2)})
+	p.mark("fun", "a note")
+	var zip := p._end("test", {"fun": 5})
+	var r := ZIPReader.new()
+	check(zip != "" and r.open(zip) == OK, "a play test packs into one zip")
+	var files := r.get_files()
+	for f in ["session.json", "events.jsonl", "survey.json"]:
+		check(f in files, "the zip holds " + f)
+	if "session.json" in files:
+		var info: Dictionary = JSON.parse_string(r.read_file("session.json").get_string_from_utf8())
+		check(info.get("game") == GameConfig.GAME_ID and int(info.get("marks", 0)) == 1, "session.json names the game and counts the notes")
+		check(not info.get("settings", {}).get("online", {}).has("server_key"), "the server key never goes in a recording")
+	r.close()
+	var survey := LGPlaytestSurvey.make(GameConfig.PLAYTEST)
+	check("fun" in survey.questions() and "name" in survey.questions(), "the survey asks the standard questions")
+	for id in GameConfig.PLAYTEST.get("skip", []):
+		check(not id in survey.questions(), "the survey skips " + id)
+	survey.free()
+	p.queue_free()
+	await get_tree().process_frame
+	LGPlaytestPack._remove(dir)
