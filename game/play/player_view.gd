@@ -29,6 +29,10 @@ func _ready() -> void:
 	_viewport.msaa_3d = Viewport.MSAA_2X
 	_viewport.audio_listener_enable_3d = index == 0
 	_container.add_child(_viewport)
+	# The 3D resolution setting reaches the root viewport on its own, not this one.
+	LGSettings.scale_3d(_viewport)
+	LGSettings.changed.connect(_on_setting_changed)
+	get_tree().root.size_changed.connect(_on_window_resized)
 	camera = RaceCamera.new()
 	camera.view = _saved_view()
 	# Each camera sees everything but the other players' braking lines.
@@ -43,6 +47,15 @@ func _ready() -> void:
 	hud.split = count > 1
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(hud)
+
+
+func _on_setting_changed(section: String, _key: String, _value: Variant) -> void:
+	if section == "video":
+		LGSettings.scale_3d(_viewport)
+
+
+func _on_window_resized() -> void:
+	LGSettings.scale_3d(_viewport)
 
 
 func _saved_view() -> String:
