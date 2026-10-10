@@ -71,7 +71,7 @@ Run the script check and the tests before every commit, and `tools/circuit_check
 
 ## Testing online
 
-Prefer a local game server to `play.linuxgroove.com`, since test runs create real accounts and rooms. online-addon.md describes running one in LXD or Docker and the two-instance tests for joining by code and quick match. Device logs live in `~/snap/race-day/current/.local/share/race-day/logs/godot.log`.
+Prefer a local game server to `play.linuxgroove.com`, since test runs create real accounts and rooms. online-addon.md describes running one in LXD or Docker and the two-instance tests for joining by code and quick match. Device logs live in `~/snap/race-day/common/.local/share/race-day/logs/godot.log`.
 
 ## Releases
 
