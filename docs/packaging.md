@@ -42,8 +42,12 @@ sudo snap connect race-day:joystick
 
 ## Where data lives
 
-Settings, progress (`progress.cfg`) and best runs' ghosts (`ghosts/`) are in
-`$SNAP_USER_DATA/.local/share/race-day`.
+Settings, progress (`progress.cfg`), best runs' ghosts (`ghosts/`), logs and
+play test recordings are in `$SNAP_USER_COMMON/.local/share/race-day`, which
+isn't copied for every revision. The launcher (`snap/local/race-day`) sets
+`XDG_DATA_HOME` there, after the gnome extension points it at
+`$SNAP_USER_DATA`, and its first run brings over what an older revision kept in
+`$SNAP_USER_DATA/.local/share`.
 
 ## Updating Godot
 

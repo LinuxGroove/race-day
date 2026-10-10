@@ -146,7 +146,7 @@ func _show_main() -> void:
 
 
 func _quit() -> void:
-	get_tree().quit()
+	LGScenes.quit()
 
 
 ## Claims the screen for one action that leaves it; false if one is running.

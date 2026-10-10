@@ -53,6 +53,7 @@ Run the script check and the tests before every commit, and `tools/circuit_check
 - **One Session for every mode.** Solo, split screen, LAN, online rooms and quick match all run the same code. Follow the rules in online-addon.md: never attach the bridge's peer yourself, never send a second hello, no `await` between joining and setting `mode`.
 - **Bump `PROTOCOL`** whenever any RPC's arguments or meaning change (including `RaceNet`'s timing state).
 - **Online results** come from `Session.report_race` (host only, online rooms only, the race session only, seat 0 of each device only) to the server's `race-day.race_report`, which writes stats and the wins, weekly wins, podiums and poles boards. Time Trial laps go to `lap_<layout>` boards through `core.score_submit`. Changing either means changing `modules/src/games/race-day.ts` in game-server too, and deploying the server first. A new layout id needs adding there as well.
+- **Play tests.** The shared add-on's `LGPlaytest` records a play test when the Play test recording setting is on (or with `-- --playtest`): a picture every few seconds, game events, frame times and controls, the player's notes (F8, or Note this moment in the pause menu) and a survey when they quit, all in one zip in `user://playtest/`. Game events go through `LGPlaytest.event()` and `moment()`; the round's own survey questions (and standard ones to skip) are `GameConfig.PLAYTEST`. Quit through `LGScenes.quit()` so the survey comes first.
 - **Everything works offline.** No server, no network and online turned off must all still play.
 - **Launch ping.** `game/main.gd` calls `LGLaunchPing.send(GameConfig.GAME_ID)` at startup: one anonymous request to the game server's `/launch` (game, random install id, version, OS, CPU) so the server counts every player, online or not. It's skipped headless, from source and with `DO_NOT_TRACK` set, and never blocks or retries.
 
@@ -70,7 +71,7 @@ Run the script check and the tests before every commit, and `tools/circuit_check
 
 ## Testing online
 
-Prefer a local game server to `play.linuxgroove.com`, since test runs create real accounts and rooms. online-addon.md describes running one in LXD or Docker and the two-instance tests for joining by code and quick match. Device logs live in `~/snap/race-day/current/.local/share/race-day/logs/godot.log`.
+Prefer a local game server to `play.linuxgroove.com`, since test runs create real accounts and rooms. online-addon.md describes running one in LXD or Docker and the two-instance tests for joining by code and quick match. Device logs live in `~/snap/race-day/common/.local/share/race-day/logs/godot.log`.
 
 ## Releases
 

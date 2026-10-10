@@ -55,6 +55,7 @@ func _main() -> void:
 	_clear()
 	_col.add_child(LGUi.label("Paused" if not Session.is_networked() else "Menu", "HeaderLarge"))
 	_col.add_child(LGUi.button("Resume", close))
+	_col.add_child(LGPlaytestButton.make())
 	if not Session.is_networked():
 		_col.add_child(LGUi.button("Restart session", _restart))
 	if scene.kind != Race.Kind.SCHOOL:
