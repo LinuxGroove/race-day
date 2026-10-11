@@ -858,6 +858,11 @@ func _input(event: InputEvent) -> void:
 const ABOUT_TEXT := """[center][b]Race Day[/b]  v%s
 A LinuxGroove game
 
+[b]Created by[/b]
+Drew VanDine
+Kaden VanDine
+Ken VanDine
+
 [b]Art, sound, music and fonts[/b]
 Kenney (kenney.nl)
 Released under CC0. Thank you, Kenney!
