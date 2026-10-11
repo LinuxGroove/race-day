@@ -1,6 +1,6 @@
 # Credits
 
-Made by the LinuxGroove team.
+Made by Drew, Kaden, and Ken VanDine, the LinuxGroove team.
 
 ## Art, audio and fonts
 
