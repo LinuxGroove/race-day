@@ -378,6 +378,7 @@ func toggle_pause() -> void:
 	# Online and LAN races keep running; the menu sits on top.
 	if not Session.is_networked():
 		get_tree().paused = true
+		LGAudio.pause_game(true)
 		for p in players:
 			p.stop_rumble()
 
@@ -392,6 +393,7 @@ func _pause_from_focus() -> void:
 func on_pause_closed() -> void:
 	_pause_menu = null
 	get_tree().paused = false
+	LGAudio.pause_game(false)
 	for p in players:
 		p.refresh()
 
