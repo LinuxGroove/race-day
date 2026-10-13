@@ -464,9 +464,47 @@ func _test_race_scene() -> void:
 	scene.toggle_pause()
 	await get_tree().process_frame
 	check(not get_tree().paused, "and resumes")
+	await _check_focus_pause(scene.get_node_or_null("FocusPause"), _race_menu_open.bind(scene), scene.toggle_pause)
 	scene.queue_free()
 	await get_tree().process_frame
 	Session.leave()
+
+
+static func _race_menu_open(scene: RaceScene) -> bool:
+	return scene._pause_menu != null and is_instance_valid(scene._pause_menu)
+
+
+## The window losing focus opens the pause menu (LGFocusPause), unless focus
+## comes straight back, the setting is off or the on-screen keyboard is up.
+func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Callable, pauses := true) -> void:
+	check(watcher != null, "the game watches for the window losing focus")
+	if watcher == null:
+		return
+	# The watcher counts real milliseconds, so wait in real time.
+	var grace := LGFocusPause.GRACE_MSEC / 1000.0 + 0.15
+	watcher.focus_lost()
+	await get_tree().process_frame
+	watcher.focus_back()
+	await get_tree().create_timer(grace, true, false, true).timeout
+	check(not menu_open.call(), "focus coming straight back doesn't open the pause menu")
+	watcher.focus_lost()
+	await get_tree().create_timer(grace, true, false, true).timeout
+	check(menu_open.call() and get_tree().paused == pauses, "losing focus opens the pause menu")
+	if pauses:
+		check(not watcher.pause_now(), "losing focus again while paused does nothing")
+	close.call()
+	await get_tree().process_frame
+	check(not menu_open.call() and not get_tree().paused, "the game carries on after Resume")
+	LGSettings.set_value("video", "focus_pause", false, false)
+	check(not watcher.pause_now() and not menu_open.call(), "Pause when switching away can be turned off")
+	LGSettings.set_value("video", "focus_pause", true, false)
+	var field := LineEdit.new()
+	add_child(field)
+	OnScreenKeyboard.open(field)
+	check(not watcher.pause_now() and not menu_open.call(), "losing focus leaves the on-screen keyboard alone")
+	field.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 ## A Racing School test driven by the autopilot earns a medal.

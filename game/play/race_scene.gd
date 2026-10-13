@@ -87,6 +87,7 @@ func _ready() -> void:
 	_hud_layer = CanvasLayer.new()
 	_hud_layer.layer = 1
 	add_child(_hud_layer)
+	LGFocusPause.watch(self, _pause_from_focus)
 	match str(config.get("mode", "quick")):
 		"time_trial":
 			sessions = [Race.Kind.TIME_TRIAL]
@@ -379,6 +380,13 @@ func toggle_pause() -> void:
 		get_tree().paused = true
 		for p in players:
 			p.stop_rumble()
+
+
+## Opens the pause menu when the window loses focus, unless it or the
+## results are already up.
+func _pause_from_focus() -> void:
+	if not _results_shown and not (_pause_menu and is_instance_valid(_pause_menu)):
+		toggle_pause()
 
 
 func on_pause_closed() -> void:
